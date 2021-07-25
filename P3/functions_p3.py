@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy import stats
 
 def load_select(dataset, selected_cols, restr="en:france"):
     '''Fonction qui prend en entrée un jeu de données dataset au format csv, et renvoie un dataframe ne contenant
@@ -10,7 +11,7 @@ def load_select(dataset, selected_cols, restr="en:france"):
     restr: valeur de countries_tags dans le cas d'un filtrage sur cette variable. "en:france" par défaut.'''
     
     # 1. Chargement du jeu de données
-    df = pd.read_csv(dataset, sep='\t', low_memory=False)
+    df = pd.read_csv(dataset, sep='\t')
     
     # 2. Suppression des lignes pour lesquelles le product name n'est pas renseigné
     df1 = df.copy()
@@ -22,14 +23,14 @@ def load_select(dataset, selected_cols, restr="en:france"):
     
     # 4. Restriction aux produits français    
     try:
-        df_app1 = df1.loc[df1.countries_tags==restr]
+        df1 = df1.loc[df1.countries_tags==restr]
     except:
-        df_app1 = df1
+        df1 = df1
 
     # 5. # On enlève la colonne "countries_tags" du dataframe, elle ne nous est plus utile.
-    df_app1.drop(columns="countries_tags", inplace=True)
+    df1.drop(columns="countries_tags", inplace=True)
     
-    return df_app1
+    return df1
 
 
 def weight_to_energy(df, start_col, new_col, coef):
@@ -65,14 +66,14 @@ def joule_to_kcal(df, var_to_convert, reference_var, cut_off_high, cut_off_low):
     
     # Ajout d'une colonne convert de type booléen (True/False). True signifie que le point est éligible à la conversion.
     # False signifie que le point est aberrant et n'est donc pas inclus dans le traitement.
-    df.loc[:, convert] = df[[reference_var, var_to_convert]].apply(lambda x: True if (x[0]<cut_off_high*x[1] 
+    df.loc[:, "convert"] = df[[reference_var, var_to_convert]].apply(lambda x: True if (x[0]<cut_off_high*x[1] 
                                                                           and x[0]>cut_off_low*x[1]) else False, axis=1)
     
     # Application de la conversion aux points éligibles.
-    df.loc[:, var_to_convert] = df[[var_to_convert, convert]].apply(lambda x: x[0]*0.239 if x[1] else x[0], axis=1)
+    df.loc[:, var_to_convert] = df[[var_to_convert, "convert"]].apply(lambda x: x[0]*0.239 if x[1] else x[0], axis=1)
     
     # Nettoyage du dataframe
-    df.drop(columns="ratio", inplace=True)
+    df.drop(columns="convert", inplace=True)
     
     return df
 
@@ -89,7 +90,7 @@ def make_mask(df, target_cols, method, loc_mask=None):
     df1 = df.copy()
     
     if loc_mask is None:
-        loc_mask = df1
+        loc_mask = df1.index
     
     if method=="greaterthan":
         new_mask = df.loc[loc_mask, target_cols].apply(lambda x: True if x[0]>x[1] else False, axis=1)
@@ -97,7 +98,7 @@ def make_mask(df, target_cols, method, loc_mask=None):
         new_mask = df.loc[loc_mask, target_cols].apply(lambda x: True if x.isna().sum()==0 else False, axis=1)
     
     # Mise à jour du dataframe
-    df1.loc[:, "complete_vars"] = e_nn
+    df1.loc[:, "complete_vars"] = new_mask
     
     return df1
 
@@ -108,7 +109,7 @@ def replace_with_nan(df, target_col):
     return df
 
 
-def create_distrib(df, col1="energy-kcal_100g", col2="total_energy_from_nutriments", reverse_cols=False, method="diff", mask=None):
+def create_distrib(df, col1="energy-kcal_100g", col2="total_energy_from_nutrients", reverse_cols=False, method="diff", mask=None):
     '''Crée une distribution à partir des colonnes "total_energy_from_nutriments" et "energy-kcal_100g".
     Selon la méthode retenue, "diff" ou "ratio", la fonction renvoie la différence ou le quotient associé à ces deux variables
     sous forme d'une Series portant le nom de la méthode retenue.
@@ -119,17 +120,17 @@ def create_distrib(df, col1="energy-kcal_100g", col2="total_energy_from_nutrimen
    
     if reverse_cols:
         col2 = "energy-kcal_100g"
-        col1 = "total_energy_from_nutriments"
+        col1 = "total_energy_from_nutrients"
 
     if mask==None:
-        loc_ind1 = df
-        loc_ind2 = df
+        loc_ind1 = df.index
+        loc_ind2 = df.index
     elif mask=="notna":
         loc_ind1 = df[col1].notna()
         loc_ind2 =  df[col2].notna()
-    elif mask=="e_nn":
-        loc_ind1 = df["e_nn"]==True
-        loc_ind2 = df["e_nn"]==True
+    elif mask=="complete_vars":
+        loc_ind1 = df["complete_vars"]==True
+        loc_ind2 = df["complete_vars"]==True
 
     s1 = df.loc[loc_ind1, col1]
     s2 = df.loc[loc_ind2, col2]
@@ -141,19 +142,68 @@ def create_distrib(df, col1="energy-kcal_100g", col2="total_energy_from_nutrimen
         distrib = pd.Series(s1/s2, name="ratio")
     
     return distrib
+    
 
-def assign_grade(x):
-    if x<-1 and x>=-15:
-        grade = "a"
-    elif x>=-1 and x<4:
-        grade = "b"
-    elif x>=4 and x<12:
-        grade = "c"
-    elif x>=12 and x<17:
-        grade = "d"
-    elif x>=17 and x<40:
-        grade = "e"
+def score(fat, carbs, proteins, p_fat=37.5, p_carbs=45, p_prot=17.5, method="abs"):
+    if method=="abs":
+        return np.abs(fat-p_fat) + np.abs(carbs-p_carbs) + np.abs(proteins-p_prot)
+    elif method=="sq":
+        return np.sqrt((fat-p_fat)**2 + (carbs-p_carbs)**2 + (proteins-p_prot)**2)
+
+def print_acp_analysis(df, pca):
+    print("\nF1 donné par :\n")
+    for v,c in sorted(list(zip(df.columns.to_numpy(), pca.components_[0])), key=lambda x: x[1], reverse=True):
+        print("{} {:.2f}".format(v,c))
+    print("\nF2 donné par:\n")
+    for v,c in sorted(list(zip(df.columns.to_numpy(), pca.components_[1])), key=lambda x: x[1], reverse=True):
+        print("{} {:.2f}".format(v,c))
+    print("\nF3 donné par:\n")
+    for v,c in sorted(list(zip(df.columns.to_numpy(), pca.components_[2])), key=lambda x: x[1], reverse=True):
+        print("{} {:.2f}".format(v,c))
+
+def print_product_analysis(df, X_proj, id1, id2, axe=1):
+    
+    prod1 = dict()
+    prod2 = dict()
+    
+    # Récupération du nom des produits à partir des index
+    prod1["name"] = df.iloc[id1]["product_name"]
+    prod2["name"] = df.iloc[id2]["product_name"]
+    
+    # analyse selon l'axe choisi
+    if axe==1:
+        print("Pour deux produits de F1 différents:\n")
+    elif axe==2:
+        print("Pour deux produits de F2 différents:\n")
+    elif axe==3:
+        print("Pour deux produits de F3 différents:\n")
+    
+    # Variables conservées pour l'analyse
+    var = ["energy-kcal_100g",
+           "fat_ratio", 
+           "carbohydrates_ratio",
+           "proteins_ratio",
+           "fiber_ratio",
+           "score",
+           "nutrition-score-fr_100g"]
+    
+    
+    # Valeur basse vs. valeur élevée pour l'axe
+    prod1["val"] = X_proj[id1, axe-1]
+    prod2["val"] = X_proj[id2, axe-1]
+    text1 = "Valeur basse"
+    text2 = "Valeur élevée"
+    
+    if prod1["val"] < prod2["val"]:
+        prod1["text"] = text1
+        prod2["text"] = text2
     else:
-        grade = np.nan
-    return grade
-
+        prod1["text"] = text2
+        prod2["text"] = text1
+    
+    # Affichage de l'analyse
+    print(f"Premier produit: {prod1['name']} ({prod1['text']}):")
+    print(df.iloc[id1][var])
+    print("-"*40)
+    print(f"Deuxième produit: {prod2['name']} ({prod2['text']}):")
+    print(df.iloc[id2][var])
