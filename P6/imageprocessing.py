@@ -98,8 +98,8 @@ def reduce_image_size(image, image_ind, data, write=False, **kwargs):
     if write:
         # save file to directory
         filename = data.image.iloc[image_ind]
-        path_to_write = kwargs.pop("path") + filename
-        cv2.imwrite(path_to_write, img)
+        path = kwargs.pop("path", "./") + filename
+        mpimg.imsave(path, img)
     
     return img
     
