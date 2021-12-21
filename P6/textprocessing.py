@@ -23,14 +23,31 @@ sw.update(STOP_WORDS)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--sample", help="""Sample of text to analyse.""")
+    parser.add_argument("-s", "--sample", type=str, help="""Sample of text to analyse. If the sample contains special characters that should be parsed
+    correctly, such as \\n, \\r or \\t, you need to place a $ sign in front: for example run python textprocessing.py $'foo\\nbar' if you want the input
+    '\\n' to ba parsed as a line feed character. Otherwise it will be read as \ followed by n. """)
     return parser.parse_args()
 
-def prepare_text(sample):
+def prepare_text(sample, **kwargs):
     # création d'un motif regex à partir de quelques phrases récurrentes et non-informatives. 
-    sentences_to_remove = ['rs.', 'flipkart.com', 'free shipping', 'cash on delivery', 'only genuine products', '30 day replacement guarantee']
-    pattern = '|'.join(s for s in sentences_to_remove)
-    cleaned_text = re.sub(pattern, '', sample)
+    sentences_to_remove = ['rs.', 
+                           'flipkart.com',
+                           'free shipping',
+                           'cash on delivery', 
+                           'only genuine products', 
+                           '30 day replacement guarantee',
+                           '\n',
+                           '\r',
+                           '\t',
+                          ]
+    
+    # création d'un motif regex à partir de quelques phrases récurrentes et non-informatives. 
+    sent_rm = kwargs.pop('sentences_to_remove', sentences_to_remove)
+    pattern = '|'.join(sentences_to_remove)
+    cleaned_text = re.sub(pattern, ' ', sample)
+    pattern_2 = re.compile(r"\s{2,}")
+    cleaned_text = re.sub(pattern_2, ' ', cleaned_text)
+
     return cleaned_text
 
 
@@ -53,8 +70,8 @@ def tokenize(sample, regex):
 
 # Récupère le texte donné en argument
 args = parse_arguments()
-sample = args.sample
-
+sample = str(args.sample)
+print(sample)
 def process_text(sample=sample, script=False):
     # motif regex pour la tokenization. Ce motif filtre directement les caractères spéciaux comme \n, \t \r etc., ainsi que les chiffres.
     pattern = re.compile(r'[a-zA-Z]+')
