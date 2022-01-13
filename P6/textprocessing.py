@@ -6,29 +6,44 @@
 - lemmatize.
 Returns the tokens from the sample"""
 
+import warnings
+warnings.filterwarnings('ignore')
+
 import re
 import nltk
 from nltk.stem import WordNetLemmatizer
 import spacy
 from spacy.lang.en.stop_words import STOP_WORDS
 import argparse
+import time
+
+from sklearn import metrics
+from collections import Counter
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn import decomposition
+from sklearn import manifold
+from sklearn import metrics
+from sklearn import preprocessing
+from sklearn import pipeline
+from sklearn import cluster
+from sklearn.model_selection import ParameterGrid
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import itertools
+
 
 
 #nltk.download('wordnet')
 
 # création du set de stopwords
-sw = set()
-sw.update(nltk.corpus.stopwords.words('english'))
-sw.update(STOP_WORDS)
+SW = set()
+SW.update(nltk.corpus.stopwords.words('english'))
+SW.update(STOP_WORDS)
 
-def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--sample", type=str, help="""Sample of text to analyse. If the sample contains special characters that should be parsed
-    correctly, such as \\n, \\r or \\t, you need to place a $ sign in front: for example run python textprocessing.py $'foo\\nbar' if you want the input
-    '\\n' to ba parsed as a line feed character. Otherwise it will be read as \ followed by n. """)
-    return parser.parse_args()
-
-def prepare_text(sample, **kwargs):
+def prepare_text(sample, script=False, **kwargs):
     # création d'un motif regex à partir de quelques phrases récurrentes et non-informatives. 
     sentences_to_remove = ['rs.', 
                            'flipkart.com',
@@ -44,11 +59,11 @@ def prepare_text(sample, **kwargs):
     # création d'un motif regex à partir de quelques phrases récurrentes et non-informatives. 
     sent_rm = kwargs.pop('sentences_to_remove', sentences_to_remove)
     pattern = '|'.join(sentences_to_remove)
-    cleaned_text = re.sub(pattern, ' ', sample)
+    cleaned_text = re.sub(pattern, ' ', sample.lower())
     pattern_2 = re.compile(r"\s{2,}")
-    cleaned_text = re.sub(pattern_2, ' ', cleaned_text)
+    cleaned_text = re.sub(pattern_2, ' ', cleaned_text.lower())
 
-    return cleaned_text
+    return cleaned_text.lower()
 
 
 # fonctions de lemmatization et tokenization
@@ -60,28 +75,38 @@ def get_lemma(tokens, lemmatizer, stop_words):
             lemmatized.append(lemmatizer.lemmatize(item))
     return lemmatized
 
-
-def tokenize(sample, regex):
-    tokenizer = nltk.RegexpTokenizer(regex)
-    tokens = tokenizer.tokenize(sample)
-    lemmas = get_lemma(tokens, lemmatizer, sw)
-    return lemmas
-
-
-# Récupère le texte donné en argument
-args = parse_arguments()
-sample = str(args.sample)
-print(sample)
-def process_text(sample=sample, script=False):
-    # motif regex pour la tokenization. Ce motif filtre directement les caractères spéciaux comme \n, \t \r etc., ainsi que les chiffres.
-    pattern = re.compile(r'[a-zA-Z]+')
-
-    cleaned = prepare_text(sample)
-    tokens = tokenize(cleaned, pattern)
-    if script:
-        print(tokens)
+def tokenize(sample, **kwargs):
+    tokenizer = kwargs.pop('tokenizer', None)
+    if tokenizer:
+        tokens = tokenizer.tokenize(sample)
+        lemma = kwargs.pop('lemmatizer', None)
+        stop_w = kwargs.pop('stop_words', None)
+        if lemma:
+            if stop_w:
+                lemmas = get_lemma(tokens, lemmatizer, stop_w)
+            else:
+                lemmas = get_lemma(tokens, lemmatizer)
+        else:
+            lemmas = tokens
+        
+        return lemmas
     else:
-        return tokens
+        print("Missing tokenizer") 
+
+# motif regex pour la tokenization. Ce motif filtre directement les caractères spéciaux comme 
+# \n, \t \r etc., ainsi que les chiffres.
+tokenizer = nltk.RegexpTokenizer(r'[a-zA-Z]+')
+def process_text(sample, script=False):
+    cleaned = prepare_text(sample, script=script)
+    tokens = tokenize(cleaned, tokenizer=tokenizer,lemmatizer=lemmatizer,stop_words=SW)
+    if script:
+        print(' '.join(tokens))
+    else:
+        return ' '.join(tokens)
 
 if __name__ == '__main__':
-    process_text(script=True)
+    print('Entrer le texte à tokenizer: ')
+    sample = input()
+    print()
+    print("Résultat:")
+    process_text(sample, script=True)

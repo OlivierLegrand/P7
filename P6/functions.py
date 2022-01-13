@@ -96,10 +96,11 @@ def display_factorial_planes(X_projected, n_comp, pca, axis_ranks, labels=None, 
             plt.title("Projection des individus (sur F{} et F{})".format(d1+1, d2+1))
             plt.show(block=False)
 
-def display_scree_plot(pca, savefig=False):
+def display_scree_plot(pca, cumsum=False, savefig=False):
     scree = pca.explained_variance_ratio_*100
     plt.bar(np.arange(len(scree))+1, scree)
-    plt.plot(np.arange(len(scree))+1, scree.cumsum(),c="red",marker='o')
+    if cumsum:
+        plt.plot(np.arange(len(scree))+1, scree.cumsum(),c="red",marker='o')
     plt.xlabel("rang de l'axe d'inertie")
     plt.ylabel("pourcentage d'inertie")
     plt.title("Eboulis des valeurs propres")
