@@ -65,6 +65,7 @@ def load_data(path=None):
 
     return data
 
+
 def conf_mat_transform(y_true,y_pred, corresp) :
     conf_mat = metrics.confusion_matrix(y_true,y_pred)
     
@@ -123,6 +124,7 @@ def make_docterm_matrix(corpus, idf_transform=True, **kwargs):
     values = tfidf.fit_transform(corpus)
     
     return tfidf, values.todense()
+
 
 def plot_silhouette_analysis(X, data, label_col):
     
@@ -216,7 +218,7 @@ def plot_silhouette_analysis(X, data, label_col):
     plt.show()
 
 
-def model_evaluation(corpus, true_labels, idf_transform=False, ari=False, **kwargs):
+def lda_scorer(corpus, true_labels, ari=False, **kwargs):
     
     # création de la matrice 'bag_of_words'
     _, docterm = make_docterm_matrix(corpus,
@@ -251,7 +253,7 @@ def model_evaluation(corpus, true_labels, idf_transform=False, ari=False, **kwar
         return [lda.score(docterm)]
 
     
-def custom_gridsearch(tokenized_corpus, grid, method='model_eval', true_labels=None, ari=True, verbose=1):
+def custom_gridsearch(tokenized_corpus, grid, method='lda', ari=True, labels=None, verbose=1):
     
     results = []
     i = 0
@@ -271,15 +273,15 @@ def custom_gridsearch(tokenized_corpus, grid, method='model_eval', true_labels=N
         
         kwargs = g
         
-        if method=='model_eval':
-            score = model_evaluation(tokenized_corpus,
-                                     true_labels,
+        if method=='lda':
+            score = lda_scorer(tokenized_corpus,
+                                     labels,
                                      ari=ari,
                                      **kwargs)
             score_name = ["score"]
             
         elif method=='tsne':
-            score = make_lsa_tsne(**kwargs)
+            score = lsa_tsne_scorer(tokenized_corpus, labels, **kwargs)
             score_name = ["silhouette_score", "davies_bouldin_score"]
                   
         results.append([*g.values(),
@@ -305,7 +307,7 @@ def custom_gridsearch(tokenized_corpus, grid, method='model_eval', true_labels=N
 
     results = pd.DataFrame(data=results, columns=cols)
 
-    if method=='model_eval':
+    if method=='lda':
         best_score = results["score"].max()
         index = results[results["score"]==best_score].index[0]
         best_params = results[results["score"]==best_score].transpose().rename(columns={index:"Paramètres"})
@@ -316,36 +318,52 @@ def custom_gridsearch(tokenized_corpus, grid, method='model_eval', true_labels=N
     return results
 
 
-def make_lsa_tsne(corpus, labels, **kwargs):
-        
-        ngram_range = kwargs.pop('ngram_range', (1,1))
-        kwargs1 = {'ngram_range':ngram_range}
-        
-        n_components = kwargs.pop('n_components', 2)
-        perplexity = kwargs.pop('perplexity', 30)
-        n_iterations = kwargs.pop('iterations', 1000)
-        kwargs2 = {'n_components':n_components}
-        kwargs3 = {'perplexity':perplexity,
-                   'n_iter':n_iterations}
-        
-        _, docterm = make_docterm_matrix(corpus, idf_transform=True, **kwargs1)
-        lsa_tsne = pipeline.make_pipeline(decomposition.TruncatedSVD(**kwargs2),
-                                          preprocessing.Normalizer(copy=False),
-                                          manifold.TSNE(**kwargs3))
+def create_lsa_tsne_pipeline(**kwargs):
+            
+    n_components = kwargs.pop('n_components', 2)
+    perplexity = kwargs.pop('perplexity', 30)
+    n_iterations = kwargs.pop('iterations', 1000)
     
-        print("Création de la représentation 2D par t-SNE... ")
-        print("perplexity = {}, n_iterations = {}, ngram_range = {}".format(kwargs3["perplexity"], 
-                                                                            kwargs3["n_iter"],
-                                                                            kwargs1["ngram_range"]))
-        array_tsne = lsa_tsne.fit_transform(docterm)
+    kwargs2 = {'n_components':n_components}
+    kwargs3 = {'perplexity':perplexity,'n_iter':n_iterations}
     
-        df_tsne = pd.DataFrame(data=array_tsne, columns=["t-SNE 0", "t-SNE 1"])
-        silh_score = metrics.silhouette_score(df_tsne, labels)
-        db_score = metrics.davies_bouldin_score(df_tsne, labels)
-        
-        score = [silh_score, db_score]
-        return score
+    lsa_tsne = pipeline.make_pipeline(decomposition.TruncatedSVD(**kwargs2),
+                                  preprocessing.Normalizer(copy=False),
+                                  manifold.TSNE(**kwargs3))
+    
+    return lsa_tsne
 
+
+def lsa_tsne_scorer(corpus, labels, **kwargs):
+    
+
+    ngram_range = kwargs.pop('ngram_range', (1,1))
+    kwargs1 = {'ngram_range':ngram_range}
+    
+    n_components = kwargs.pop('n_components', 2)
+    perplexity = kwargs.pop('perplexity', 30)
+    n_iterations = kwargs.pop('iterations', 1000)
+    
+    kwargs2 = {'n_components':n_components, 
+               'perplexity':perplexity,
+               'n_iter':n_iterations}
+    
+    _, docterm = make_docterm_matrix(corpus, idf_transform=True, **kwargs1)
+    lsa_tsne = create_lsa_tsne_pipeline(**kwargs2)
+    
+
+    print("Création de la représentation 2D par t-SNE... ")
+    print("perplexity = {}, n_iterations = {}, ngram_range = {}".format(kwargs2["perplexity"], 
+                                                                        kwargs2["n_iter"],
+                                                                        kwargs1["ngram_range"]))
+    array_tsne = lsa_tsne.fit_transform(docterm)
+
+    df_tsne = pd.DataFrame(data=array_tsne, columns=["t-SNE 0", "t-SNE 1"])
+    silh_score = metrics.silhouette_score(df_tsne, labels)
+    db_score = metrics.davies_bouldin_score(df_tsne, labels)
+    
+    score = [silh_score, db_score]
+    return score
 
 
 def plot_gs_results(results, score, axis_scale="log", plot_param=["alpha"], savefig=False, figname='untitled'):

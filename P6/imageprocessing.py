@@ -12,50 +12,16 @@ from skimage import restoration
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-from ast import literal_eval
-
 import cv2
 
 import missingno as msno
 from tqdm import tqdm
 
-# visualisation des categories dans un dataframe
-def category_trees(data):
-    
-    prod_cat_lists = []
-    product_trees = (data.product_category_tree.apply(lambda x: x.replace(' >> ', '","'))
-                     .apply(literal_eval)
-                    )
-    
-    for tree in product_trees:
-        prod_cat_lists.append(tree)
-    
-    df = pd.DataFrame(prod_cat_lists)
-    
-    
-    return df
 
+def load_images(fname):
 
-# création de la variable des catégories de produits
-def extract_categories_from_tree(data, level=0):
-    
-    df = category_trees(data)
-
-    return df[level]
-
-
-
-def load_images(filelist, path='./data/Flipkart/Images/'):
-
-    images = []
-
-    for i, l in enumerate(tqdm(filelist)):
-        # chemin vers l'image
-        filename = path + l
-        images.append(mpimg.imread(filename))
-
-    
-    return np.asarray(images, dtype='object')
+    img = mpimg.imread(fname)
+    return img
 
 
 def reduce_image_size(image, image_ind, data, write=False, **kwargs):
