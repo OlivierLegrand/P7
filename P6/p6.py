@@ -30,7 +30,8 @@ from sklearn.model_selection import ParameterGrid
 
 # visualisation des categories dans un dataframe
 def category_trees(data):
-    
+    """Extrait les catégories et les affiche dans un DataFrame"""
+
     prod_cat_lists = []
     product_trees = (data["product_category_tree"].apply(lambda x: x.replace(' >> ', '","'))
                      .apply(literal_eval)
@@ -47,13 +48,15 @@ def category_trees(data):
 
 # création de la variable des catégories de produits
 def extract_categories_from_tree(data, level=0):
-    
+    """Renvoie uniquement le ou les niveaux de catégories désiré sous forme d'un pandas.Series"""
+
     df = category_trees(data)
 
     return df[level]
 
+
 def load_data(path=None):
-    """docstring"""
+    """Chargement du jeu de données"""
     
     if path is None:
         rootpath = "./data/Flipkart/"
@@ -66,12 +69,17 @@ def load_data(path=None):
     return data
 
 
-def conf_mat_transform(y_true,y_pred, corresp) :
-    conf_mat = metrics.confusion_matrix(y_true,y_pred)
+def conf_mat_transform(y_true, y_pred, corresp=None):
+    """Construit la matrice de confusion, à partir des étiquettes "vraies" et des étiquettes déterminées 
+    par un algorithme de classification/clusterisation ad hoc."""
     
-    #corresp = np.argmax(conf_mat, axis=0)
+    conf_mat = metrics.confusion_matrix(y_true,y_pred)
+        
+    if not corresp:
+        corresp = np.argmax(conf_mat, axis=0)
     #corresp = [3, 1, 2, 0]
     print ("Correspondance des clusters : ", corresp)
+    
     # y_pred_transform = np.apply_along_axis(correspond_fct, 1, y_pred)
     labels = pd.Series(y_true, name="y_true").to_frame()
     labels['y_pred'] = y_pred
@@ -81,7 +89,9 @@ def conf_mat_transform(y_true,y_pred, corresp) :
 
 
 def word_freq(corpus):
+    """Crée le compteur des fréquences des mots du corpus.
     
+    """
     # construction du dictionnaire des fréquences
     freq_dist = Counter()
     for text in corpus:
@@ -93,18 +103,25 @@ def word_freq(corpus):
 
 # Fonction de filtrage des mots (les plus rares et les plus fréquents)
 def filter_tokens(corpus, freq_dist, min_tf, max_tf):
-    
-        # On retire les tokens tels que word_freq[token] < min_tf ou > max_tf
-        new_corpus = [' '.join([token for token in text.split(' ') 
-                                if (freq_dist[token] > min_tf) and (freq_dist[token] < max_tf)
-                               ])
-                      for text in corpus]
-        
-        return new_corpus
+    """Cette fonction prend en entrée un ensemble de texte (corpus) et renvoie un 
+    nouveau corpus composé des textes purgés trop rares (frequence < min_tf) ou trop
+    fréquents (fréquence > max_tf). freq_dist est un Counter() représentant la fréquence
+    des tokens composant les textes du corpus."""
+
+    # On retire les tokens tels que word_freq[token] < min_tf ou > max_tf
+    new_corpus = [' '.join([token for token in text.split(' ') 
+    if (freq_dist[token] > min_tf) and (freq_dist[token] < max_tf)
+                            ])
+                            for text in corpus
+                ]
+    return new_corpus
             
 
 def make_docterm_matrix(corpus, idf_transform=True, **kwargs):
-    
+    """Crée la matrice document-terme à partir d'un corpus de texte en appliquant la 
+    méthode TfidfVectorizer() au corpus. Les arguments sont ceux de la fonction filter_tokens et
+    du module TfidfVectorizer() de scikit-learn."""
+
     freq_dist = word_freq(corpus)
     
     max_tf = kwargs.pop('max_tf', None)
@@ -127,7 +144,8 @@ def make_docterm_matrix(corpus, idf_transform=True, **kwargs):
 
 
 def plot_silhouette_analysis(X, data, label_col):
-    
+    """Crée et affiche les plots de silhouette pour l'évaluation d'une segmentation
+    non-supervisée."""
     
     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(10, 5))
     
@@ -177,7 +195,7 @@ def plot_silhouette_analysis(X, data, label_col):
     # 2nd Plot showing the actual clusters formed
     colors = mpl.cm.nipy_spectral(data[label_col].astype(float) / data[label_col].nunique())
     ax2.scatter(
-        X.iloc[:, 0], X.iloc[:, 1], 
+        X[:, 0], X[:, 1], 
         marker=".", 
         s=30,
         lw=0,
@@ -190,9 +208,9 @@ def plot_silhouette_analysis(X, data, label_col):
     # Labeling the clusters
     #centers = clusterer.cluster_centers_
     centroids = []
-    for t in data[label_col].unique():
+    for t in sorted(data[label_col].unique()):
         cluster_indices = np.where(data[label_col]==t)
-        centroids.append(X.iloc[cluster_indices].sum(axis=0) / len(cluster_indices[0]))
+        centroids.append(X[cluster_indices].sum(axis=0) / len(cluster_indices[0]))
     
     centroids = np.asarray(centroids)
     
@@ -219,7 +237,11 @@ def plot_silhouette_analysis(X, data, label_col):
 
 
 def lda_scorer(corpus, true_labels, ari=False, **kwargs):
-    
+    """Crée la matrice document-terme à partir du corpus, calcule un modèle de Dirichlet
+    (LatentDirichletAllocation) sur ce corpus pour en extraire les thèmes latents et renvoie, au choix, le score
+    de Rand ajusté entre les vrais thèmes et ceux déterminés par le modèle, ou simplement le log-likelihood du modèle
+    sur le corpus."""
+
     # création de la matrice 'bag_of_words'
     _, docterm = make_docterm_matrix(corpus,
                                   **kwargs
@@ -450,7 +472,7 @@ def visualize_tsne(data, X_tsne, label_col, title="K-Means clusterization"):
     # Plot
     fig, (ax1, ax2) = plt.subplots(ncols = 2, figsize=(12, 5))
 
-    sns.scatterplot(data=df, x="t-SNE 0", y="t-SNE 1", hue=label_col,palette='tab20', legend=False, ax=ax1)
+    sns.scatterplot(data=df, x="t-SNE 0", y="t-SNE 1", hue=label_col, palette='viridis', legend=False, ax=ax1)
     #ax1.legend(np.arange(len(np.unique(df.hdbs_label)))-1)
     ax1.set_title(title)
 
@@ -461,3 +483,20 @@ def visualize_tsne(data, X_tsne, label_col, title="K-Means clusterization"):
     
     plt.tight_layout()
     plt.show()
+
+
+def hdbs_clustering(X, data, model):
+
+    model.fit(X)
+    hdbs_labels = model.labels_
+    print("Nombre de clusters trouvés (le bruit compte pour un cluster): {}"
+          .format(len(np.unique(hdbs_labels))))
+    data["hdbs_label"] = hdbs_labels
+    
+    return data
+
+
+def eval_clustering(true_labels, cluster_labels, text="LDA"):
+    #Encodage numérique des vraies catégories
+    print("ARI entre les étiquettes obtenues par {} et les vraies étiquettes: {:.2f}"
+          .format(text, metrics.adjusted_rand_score(true_labels, cluster_labels)))

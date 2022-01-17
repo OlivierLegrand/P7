@@ -39,11 +39,24 @@ import itertools
 #nltk.download('wordnet')
 
 # création du set de stopwords
+print('Creation du set de stopwords...')
 SW = set()
 SW.update(nltk.corpus.stopwords.words('english'))
 SW.update(STOP_WORDS)
+print("Création du set de stopwords terminée")
 
-def prepare_text(sample, script=False, **kwargs):
+
+
+def clean_sample(sample):
+    
+    cleaned_sample = re.sub('\n|\r|\t', ' ', sample)
+    cleaned_sample = re.sub('\s{2,}', ' ', cleaned_sample)
+    
+    return cleaned_sample
+
+
+
+def prepare_text(sample, **kwargs):
     # création d'un motif regex à partir de quelques phrases récurrentes et non-informatives. 
     sentences_to_remove = ['rs.', 
                            'flipkart.com',
@@ -54,20 +67,23 @@ def prepare_text(sample, script=False, **kwargs):
                            '\n',
                            '\r',
                            '\t',
+                           r'\bcm\b',
+                           r'\bbuy\b',
+                           r'\bl\b'
                           ]
-    
-    # création d'un motif regex à partir de quelques phrases récurrentes et non-informatives. 
-    sent_rm = kwargs.pop('sentences_to_remove', sentences_to_remove)
-    pattern = '|'.join(sentences_to_remove)
-    cleaned_text = re.sub(pattern, ' ', sample.lower())
-    pattern_2 = re.compile(r"\s{2,}")
-    cleaned_text = re.sub(pattern_2, ' ', cleaned_text.lower())
 
-    return cleaned_text.lower()
+    sent_rm = kwargs.pop('sentences_to_remove', sentences_to_remove)
+    pattern = "|".join(sentences_to_remove)
+    cleaned_text = re.sub(pattern, ' ', sample)
+    pattern_2 = re.compile(r"\s{2,}")
+    cleaned_text = re.sub(pattern_2, ' ', cleaned_text)
+    return cleaned_text
 
 
 # fonctions de lemmatization et tokenization
+print("Chargement du lemmatizer...")
 lemmatizer = WordNetLemmatizer()
+
 def get_lemma(tokens, lemmatizer, stop_words):
     lemmatized = []
     for item in tokens:
@@ -95,7 +111,9 @@ def tokenize(sample, **kwargs):
 
 # motif regex pour la tokenization. Ce motif filtre directement les caractères spéciaux comme 
 # \n, \t \r etc., ainsi que les chiffres.
+print("Chargement du tokenizer...")
 tokenizer = nltk.RegexpTokenizer(r'[a-zA-Z]+')
+
 def process_text(sample, script=False):
     cleaned = prepare_text(sample, script=script)
     tokens = tokenize(cleaned, tokenizer=tokenizer,lemmatizer=lemmatizer,stop_words=SW)
@@ -105,8 +123,7 @@ def process_text(sample, script=False):
         return ' '.join(tokens)
 
 if __name__ == '__main__':
-    print('Entrer le texte à tokenizer: ')
-    sample = input()
+    sample = input('Entrer le texte à tokenizer: ')
     print()
     print("Résultat:")
     process_text(sample, script=True)

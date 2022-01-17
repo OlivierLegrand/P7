@@ -14,8 +14,13 @@ import matplotlib.image as mpimg
 
 import cv2
 
+import functions
+import p6
+
 import missingno as msno
 from tqdm import tqdm
+
+from sklearn import decomposition
 
 
 def load_images(fname):
@@ -188,3 +193,25 @@ def image_preprocessing(im):
     img = cv2.cvtColor(im_ycc, cv2.COLOR_YCrCb2RGB)
     
     return  img
+
+
+def build_histogram(kmeans, des, image_num):
+    
+    res = kmeans.predict(des)
+    hist = np.zeros(len(kmeans.cluster_centers_))
+    nb_des=len(des)
+    if nb_des==0 : print("problème histogramme image  : ", image_num)
+    for i in res:
+        hist[i] += 1.0/nb_des
+    return hist
+
+
+def run_pca(features, cumsum=False, n_comp=None):
+    
+    print("Dimensions dataset avant réduction PCA : ", features.shape)
+    pca = decomposition.PCA(n_components=n_comp)
+    feat_pca= pca.fit_transform(features)
+    print("Dimensions dataset après réduction PCA : ", feat_pca.shape)
+
+    functions.display_scree_plot(pca, cumsum=cumsum)
+    return feat_pca
