@@ -143,7 +143,7 @@ def make_docterm_matrix(corpus, idf_transform=True, **kwargs):
     return tfidf, values.todense()
 
 
-def plot_silhouette_analysis(X, data, label_col):
+def plot_silhouette_analysis(X, data, label_col, savefig=False, path='./images/silh_analysis.png'):
     """Crée et affiche les plots de silhouette pour l'évaluation d'une segmentation
     non-supervisée."""
     
@@ -182,15 +182,16 @@ def plot_silhouette_analysis(X, data, label_col):
         # Compute the new y_lower for next plot
         y_lower = y_upper + 10  # 10 for the 0 samples
     
-    ax1.set_title("The silhouette plot for the various clusters.")
-    ax1.set_xlabel("The silhouette coefficient values")
-    ax1.set_ylabel("Cluster label")
+    ax1.set_title("The silhouette plot for the various clusters.", fontsize=16)
+    ax1.set_xlabel("The silhouette coefficient values", size=14)
+    ax1.set_ylabel("Cluster label", size=14)
     
     # The vertical line for average silhouette score of all the values
     ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
     
     ax1.set_yticks([])  # Clear the yaxis labels / ticks
-    ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+    ax1.set_xticks([-0.7, -0.5, -0.3, -0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+    ax1.set_xticklabels([-0.7, -0.5, -0.3, -0.1, 0, 0.2, 0.4, 0.6, 0.8, 1], size=14)
     
     # 2nd Plot showing the actual clusters formed
     colors = mpl.cm.nipy_spectral(data[label_col].astype(float) / data[label_col].nunique())
@@ -228,11 +229,19 @@ def plot_silhouette_analysis(X, data, label_col):
     for i, c in enumerate(centroids):
         ax2.scatter(c[0], c[1], marker="$%d$" % i, alpha=1, s=50, edgecolor="k")
     
-    ax2.set_title("The visualization of the clustered data.")
-    ax2.set_xlabel("Feature space for the 1st feature")
-    ax2.set_ylabel("Feature space for the 2nd feature")
+    ax2.set_title("The visualization of the clustered data.", fontsize=16)
+    ax2.set_xlabel("Feature space for the 1st feature", size=14)
+    ax2.set_ylabel("Feature space for the 2nd feature", size=14)
+    ax2.xaxis.set_tick_params(labelsize=14)
+    ax2.yaxis.set_tick_params(labelsize=14)
     
+
     plt.tight_layout()
+    
+    if savefig:
+        plt.savefig(path, dpi=300)
+    
+    
     plt.show()
 
 
@@ -464,7 +473,7 @@ def compute_distorsion(X, topics):
     return distorsion
 
 
-def visualize_tsne(data, X_tsne, label_col, title="K-Means clusterization"):
+def visualize_tsne(data, X_tsne, label_col, title="K-Means clusterization", savefig=False, path='./images/lsa_kmeans.png'):
     
     X_tsne = pd.DataFrame(data=X_tsne, columns=["t-SNE 0", "t-SNE 1"])
     df = pd.concat([X_tsne, data[[label_col, "product_category_0"]]], axis=1)
@@ -474,14 +483,27 @@ def visualize_tsne(data, X_tsne, label_col, title="K-Means clusterization"):
 
     sns.scatterplot(data=df, x="t-SNE 0", y="t-SNE 1", hue=label_col, palette='viridis', legend=False, ax=ax1)
     #ax1.legend(np.arange(len(np.unique(df.hdbs_label)))-1)
-    ax1.set_title(title)
+    ax1.set_title(title, fontsize=16)
+    ax1.xaxis.set_tick_params(labelsize=14)
+    ax1.yaxis.set_tick_params(labelsize=14)
 
     sns.scatterplot(data=df, x="t-SNE 0", y="t-SNE 1", hue="product_category_0", palette='tab10', ax=ax2)
-    ax2.set_title("Original segmentation (level 0)")
+    ax2.set_title("Original segmentation (level 0)", fontsize=16)
+    ax1.xaxis.set_tick_params(labelsize=14)
     # Put the legend out of the figure
     ax2.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     
+    for ax in (ax1, ax2):
+        ax.set_xlabel('t-SNE 0', size=14)
+        ax.set_ylabel('t-SNE 1', size=14)
+        ax.xaxis.set_tick_params(labelsize=14)
+        ax.yaxis.set_tick_params(labelsize=14)
+
     plt.tight_layout()
+
+    if savefig:
+        plt.savefig(path, dpi=300)
+
     plt.show()
 
 

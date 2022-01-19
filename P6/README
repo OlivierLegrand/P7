@@ -1,0 +1,5 @@
+Pour lancer le script de prétraitement de texte:
+lancer en ligne de commande python textprocessing.py
+puis écrire ou copier-coller le texte à traiter.
+
+Le script réalise la tokenization, la lemmatisation et filtre les stopwords

@@ -116,7 +116,7 @@ tokenizer = nltk.RegexpTokenizer(r'[a-zA-Z]+')
 
 def process_text(sample, script=False):
     cleaned = prepare_text(sample, script=script)
-    tokens = tokenize(cleaned, tokenizer=tokenizer,lemmatizer=lemmatizer,stop_words=SW)
+    tokens = tokenize(cleaned, tokenizer=tokenizer, lemmatizer=lemmatizer, stop_words=SW)
     if script:
         print(' '.join(tokens))
     else:
