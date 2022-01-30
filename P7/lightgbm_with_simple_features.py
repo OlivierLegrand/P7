@@ -1,4 +1,4 @@
-#! /Users/Olivier/anaconda3/envs/P7/bin/python3.7
+#! /Users/Olivier/Documents/OpenclassRooms/formation_data_science/Git/olivier-main/P7
 
 # HOME CREDIT DEFAULT RISK COMPETITION
 # Most features are created by applying min, max, mean, sum and var functions to grouped tables. 
@@ -255,7 +255,7 @@ def credit_card_balance(num_rows = None, nan_as_category = True):
 # LightGBM GBDT with KFold or Stratified KFold
 # Parameters from Tilii kernel: https://www.kaggle.com/tilii7/olivier-lightgbm-parameters-by-bayesian-opt/code
 def kfold_lightgbm(df, num_folds, stratified = False, debug= False):
-    # Divide in training/validation and test data
+    # Divide in training/validation and test data   ``
     # train test split sur train_df
 
     train_df, test_df = train_test_split(df, test_size=0.25)
@@ -369,6 +369,7 @@ def main(debug = False):
         feat_importance = kfold_lightgbm(df, num_folds= 10, stratified= True, debug= debug)
 
 if __name__ == "__main__":
+    print("Coucou")
     submission_file_name = "submission_kernel02.csv"
-    with timer("Full model run"):
-        main(debug=True)
+#     with timer("Full model run"):
+#         main(debug=True)
