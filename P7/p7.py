@@ -68,8 +68,9 @@ def contingence(Var1, Var2, df):
     plt.figure(figsize=(18, 6))
     sns.heatmap(table.iloc[:-1,:-1],annot=c.iloc[:-1,:-1], fmt=".0f")
 
-def dropna_cols(df, perc_filled):
 
+def dropna_cols(df, perc_filled):
+    """Retire les colonnes remplies à moins de perc_filled. perc_filled est compris entre 0 et 1."""
     nna = df.notna().sum()/df.shape[0]
     nfilled_cols = nna[nna<perc_filled].index
     cleaned_df = df.drop(columns=nfilled_cols)
@@ -77,29 +78,35 @@ def dropna_cols(df, perc_filled):
     return cleaned_df
 
 
-def impute(df, iterative, **kwargs):
+def impute(df, iterative=False, **kwargs):
+    """Réalise l'imputation des valeurs manquantes. Deux méthodes disponibles au choix via le booléen iterative:
+    - SimpleImputer
+    - IterativeImputer
+    Dans les deux cas, la méthode d'imputation ou l'estimateur choisi peuvent être passés via les kwargs. Voir les
+    documentations correspondantes pour la syntaxe est les choix possibles.
+    """
+    num_cols = [col for col in df.columns if df[col].dtype!='object']
     
-        num_cols = [col for col in df.columns if df[col].dtype!='object']
-        
-        if not iterative:
-            strategy = kwargs.pop('strategy', None)
-            imp = SimpleImputer(missing_values=np.nan, strategy=strategy)
-            imp.fit(df[num_cols])
-            filled_df = imp.transform(df)
+    if not iterative:
+        strategy = kwargs.pop('strategy', None)
+        imp = SimpleImputer(missing_values=np.nan, strategy=strategy)
+        imp.fit(df[num_cols])
+        filled_df = imp.transform(df)
             
-        else:
-            estimator = kwargs.pop('estimator', None)
-            imp = IterativeImputer(missing_values=np.nan, estimator=estimator)
-            imp.fit(df[num_cols])
-            filled_df = imp.fit_transform(df)
+    else:
+        estimator = kwargs.pop('estimator', None)
+        imp = IterativeImputer(missing_values=np.nan, estimator=estimator)
+        imp.fit(df[num_cols])
+        filled_df = imp.fit_transform(df)
             
-        return filled_df
+    return filled_df
     
     
 def cleanup(df, perc_filled, iterative=False, **kwargs):
+    """Réalise le nettoyage des colonnes vides et l'imputation en cascade"""
     
     cleaned_df = dropna_cols(df, perc_filled)
-    filled_df = impute(cleaned_df, iterative=True)
+    filled_df = impute(cleaned_df, iterative=iterative)
     
     return filled_df
         
