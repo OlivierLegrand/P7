@@ -1,3 +1,4 @@
+import pandas as pd
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -99,7 +100,7 @@ def impute(df, iterative=False, **kwargs):
         imp.fit(df[num_cols])
         filled_df = imp.fit_transform(df)
             
-    return filled_df
+    return pd.DataFrame(data=filled_df, columns=df.columns)
     
     
 def cleanup(df, perc_filled, iterative=False, **kwargs):
