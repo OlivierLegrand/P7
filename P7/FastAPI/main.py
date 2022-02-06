@@ -4,8 +4,6 @@ from enum import Enum
 from pydantic import BaseModel
 import uvicorn
 
-from Model import HomeCreditDefaultModel, HomeCreditDefaultClient
-
 app = FastAPI()
 
 class ModelName(str, Enum):

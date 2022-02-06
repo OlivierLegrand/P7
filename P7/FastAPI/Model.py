@@ -1,25 +1,12 @@
 # 1. Library imports
 import warnings
 warnings.filterwarnings('ignore')
-import pandas as pd
-import lightgbm_with_simple_features as lgbmsf
 import json
-import seaborn as sns
-import re
-import missingno as msno
-import numpy as np
-import matplotlib.pyplot as plt
-import os
-import pickle
-
+import lightgbm_with_simple_features as lgbmsf
 from lightgbm import LGBMClassifier
-
-from sklearn.dummy import DummyClassifier
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
-from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, RandomizedSearchCV, ParameterGrid
-
 from pydantic import BaseModel
 import joblib
+#from sklearn.model_selection import train_test_split
 
 with open('config.json', 'r') as f:
     config = json.load(f)
@@ -27,10 +14,23 @@ with open('config.json', 'r') as f:
 NUM_ROWS = config["NUM_ROWS"]
 PATH = config["PATH"]
 
+def clean_df(df):
+    nna = df.notna().sum()/df.shape[0]
+    nfilled_cols = nna[nna<0.7].index
+    filled_df = df.drop(columns=nfilled_cols)
+    filled_df.fillna(filled_df.mean(), inplace=True)
+    return filled_df
+
+
 
 # 2. Class which describes a single client parameters
 class HomeCreditDefaultClient(BaseModel):
-    client_parameters: list
+    client_id: int = 0
+    client_name: str = 'Smith'
+
+class Response(BaseModel):
+    prediction: int
+    probability: float
 
 
 # 3. Class for training the model and making predictions
@@ -40,20 +40,22 @@ class HomeCreditDefaultModel:
     #    saves the model
     def __init__(self):
         # Jointures
-        self.df = lgbmsf.join_df(num_rows=NUM_ROWS)
+        self.df = clean_df(lgbmsf.join_df(num_rows=NUM_ROWS))
         self.model_fname_ = 'fitted_lgbm.pickle'
         try:
             self.model = joblib.load(self.model_fname_)
+            print(self.model)
         except Exception as _:
             print('You need to train the model first!')
             self.model = self._train_model()
             joblib.dump(self.model, self.model_fname_)
         
 
-    # 4. Perform model training using the RandomForest classifier
+    # 4. Perform model training using the LightGBM classifier
     def _train_model(self):
         X = self.df.drop(['SK_ID_CURR', 'TARGET'], axis=1)
         y = self.df['TARGET']
+
         bestmodel = LGBMClassifier(early_stopping_round=200,
                                objective='binary',
                                metric='AUC',
@@ -71,8 +73,11 @@ class HomeCreditDefaultModel:
 
     # 5. Make a prediction based on the user-entered data
     #    Returns the predicted species with its respective probability
-    def predict_species(self, client_parameters):
-        data_in = [client_parameters]
-        prediction = self.model.predict(data_in)
-        probability = self.model.predict_proba(data_in).max()
+    def predict_default(self, client_id):
+        # Séparation en jeux d'entraînement/test
+        X = self.df.drop(['SK_ID_CURR', 'TARGET'], axis=1).to_numpy()
+        print(client_id)
+        data_in = [X[client_id]]
+        prediction = self.model.predict([X[client_id]])
+        probability = self.model.predict_proba([X[client_id]]).max()
         return prediction[0], probability
