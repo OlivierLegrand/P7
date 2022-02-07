@@ -11,7 +11,7 @@ model = HomeCreditDefaultModel()
 @app.post('/predict', response_model=Response)
 def predict_default(client: HomeCreditDefaultClient):
     client_data = client.dict()
-    prediction, probability = model.predict_default(client_data['client_id'])
+    prediction, probability = model.predict_default(client_data['client_features'])
     result = {'prediction': prediction, 'probability': probability}
     return result
 

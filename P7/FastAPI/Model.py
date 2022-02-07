@@ -1,7 +1,9 @@
 # 1. Library imports
+from typing import List, Dict
 import warnings
 warnings.filterwarnings('ignore')
 import json
+import pandas as pd
 import lightgbm_with_simple_features as lgbmsf
 from lightgbm import LGBMClassifier
 from pydantic import BaseModel
@@ -25,7 +27,7 @@ def clean_df(df):
 
 # 2. Class which describes a single client parameters
 class HomeCreditDefaultClient(BaseModel):
-    client_id: int = 0
+    client_features: List = []
     client_name: str = 'Smith'
 
 class Response(BaseModel):
@@ -40,11 +42,18 @@ class HomeCreditDefaultModel:
     #    saves the model
     def __init__(self):
         # Jointures
-        self.df = clean_df(lgbmsf.join_df(num_rows=NUM_ROWS))
+        try:
+            fname = './filled_data.csv'
+            self.df = pd.read_csv('./filled_data.csv')
+            self.df_fname = './filled_data.csv'
+            print('Dataset {} loaded'.format(self.df_fname))
+        except:
+            self.df = clean_df(lgbmsf.join_df(num_rows=NUM_ROWS))
+    
         self.model_fname_ = 'fitted_lgbm.pickle'
         try:
             self.model = joblib.load(self.model_fname_)
-            print(self.model)
+            print('Model loaded:', self.model)
         except Exception as _:
             print('You need to train the model first!')
             self.model = self._train_model()
@@ -73,11 +82,10 @@ class HomeCreditDefaultModel:
 
     # 5. Make a prediction based on the user-entered data
     #    Returns the predicted species with its respective probability
-    def predict_default(self, client_id):
+    def predict_default(self, client_features):
         # Séparation en jeux d'entraînement/test
         X = self.df.drop(['SK_ID_CURR', 'TARGET'], axis=1).to_numpy()
-        print(client_id)
-        data_in = [X[client_id]]
-        prediction = self.model.predict([X[client_id]])
-        probability = self.model.predict_proba([X[client_id]]).max()
+        data_in = [client_features]
+        prediction = self.model.predict([client_features])
+        probability = self.model.predict_proba([client_features]).max()
         return prediction[0], probability
