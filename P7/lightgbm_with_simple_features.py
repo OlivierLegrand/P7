@@ -262,11 +262,13 @@ def kfold_lightgbm(df, num_folds, stratified = False, debug= False):
     print("Starting LightGBM. Train shape: {}, test shape: {}".format(train_df.shape, test_df.shape))
     del df
     gc.collect()
+    
     # Cross validation model
     if stratified:
         folds = StratifiedKFold(n_splits= num_folds, shuffle=True, random_state=1001)
     else:
         folds = KFold(n_splits= num_folds, shuffle=True, random_state=1001)
+    
     # Create arrays and dataframes to store results
     oof_preds = np.zeros(train_df.shape[0])
     sub_preds = np.zeros(test_df.shape[0])
@@ -297,7 +299,7 @@ def kfold_lightgbm(df, num_folds, stratified = False, debug= False):
             eval_metric= 'auc', verbose= 200, early_stopping_rounds= 200)
 
         oof_preds[valid_idx] = clf.predict_proba(valid_x, num_iteration=clf.best_iteration_)[:, 1]
-        sub_preds += clf.predict_proba(test_df[feats], num_iteration=clf.best_iteration_)[:, 1] / folds.n_splits
+        #sub_preds += clf.predict_proba(test_df[feats], num_iteration=clf.best_iteration_)[:, 1] / folds.n_splits
 
         fold_importance_df = pd.DataFrame()
         fold_importance_df["feature"] = feats
@@ -362,6 +364,49 @@ def join_df(num_rows=None):
     
     return df
 
+
+def join_raw_df(num_rows=None):
+    """Directement adaptée à partir de la fonction lightgbm_with_simple_features.join_df, cette
+    fonction réalise les jointures des différentes tables sans réaliser de traitement sur les variables."""
+    
+    df = pd.read_csv(PATH+'application_train.csv', nrows= num_rows)
+    print("Train samples: {}".format(len(df)))
+    with timer("Process bureau and bureau_balance"):
+        bureau = pd.read_csv(PATH+'bureau.csv', nrows = num_rows)
+        bb = pd.read_csv(PATH+'bureau_balance.csv', nrows = num_rows)
+        bureau = bureau.join(bb.set_index('SK_ID_BUREAU'), how='left', on='SK_ID_BUREAU')
+        bureau.drop(['SK_ID_BUREAU'], axis=1, inplace= True)
+        print("Bureau df shape:", bureau.shape)
+        df = df.join(bureau.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_bureau')
+        del bureau, bb
+        gc.collect()
+    with timer("Process previous_applications"):
+        prev = pd.read_csv(PATH+'previous_application.csv', nrows = num_rows)
+        print("Previous applications df shape:", prev.shape)
+        df = df.join(prev.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_prev')
+        del prev
+        gc.collect()
+    with timer("Process POS-CASH balance"):
+        pos = pd.read_csv(PATH+'POS_CASH_balance.csv', nrows = num_rows)
+        print("Pos-cash balance df shape:", pos.shape)
+        df = df.join(pos.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_pos')
+        del pos
+        gc.collect()
+    with timer("Process installments payments"):
+        ins = pd.read_csv(PATH+'installments_payments.csv', nrows = num_rows)
+        print("Installments payments df shape:", ins.shape)
+        df = df.join(ins.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_ins')
+        del ins
+        gc.collect()
+    with timer("Process credit card balance"):
+        cc = pd.read_csv(PATH+'credit_card_balance.csv', nrows = num_rows)
+        print("Credit card balance df shape:", cc.shape)
+        df = df.join(cc.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_cc')
+        del cc
+        gc.collect()
+    
+    return df
+    
 def main(debug = False):
     num_rows = NUM_ROWS if debug else None
     df = join_df(num_rows, debug)
