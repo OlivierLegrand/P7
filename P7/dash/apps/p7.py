@@ -1,4 +1,4 @@
-from distutils.command.clean import clean
+
 import pandas as pd
 import numpy as np
 
@@ -14,8 +14,6 @@ import statsmodels.formula.api as sm_api
 from scipy.stats import chi2_contingency
 
 import lightgbm_with_simple_features as lgbmsf
-
-
 
 
 def anova(df, quant_var, cat_var, subcat=None):
@@ -118,13 +116,13 @@ def cleanup(df, perc_filled, impute=False, **kwargs):
     return filled_df
 
 
-def prepare_data(raw=False, **kwargs):
+def prepare_data(num_rows=None, raw=False, **kwargs):
     """Réalise l'importation des tables,le prétraitement (cleanup) et la séparation en jeux entraînement-test"""
     
     if raw:
-        df = lgbmsf.join_raw_df(num_rows=None)
+        df = lgbmsf.join_raw_df(num_rows)
     else:
-        df = lgbmsf.join_df(num_rows=None)
+        df = lgbmsf.join_df(num_rows)
 
     perc_filled = kwargs.pop('perc_filled', 0.8)
     impute = kwargs.pop('impute', False)
