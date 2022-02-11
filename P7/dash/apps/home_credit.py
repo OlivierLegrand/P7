@@ -15,15 +15,13 @@ with open('./config.json', 'r') as f:
 PATH = CONFIG["PATH"]
 NUM_ROWS = CONFIG["NUM_ROWS"]
 
-_, raw_test_df, _, raw_target_test_df = p7.prepare_data(num_rows=NUM_ROWS, raw=True, perc_filled=0.8)
-raw_df = pd.concat([raw_test_df, raw_target_test_df], axis=1)
-raw_df.index = pd.Index(range(raw_df.shape[0]))
-print('raw data created')
+raw_df = pd.read_csv('../data/raw_df_test.csv')
+raw_df.index = pd.Index(range(1, raw_df.shape[0]+1))
+print('raw data loaded')
 
-_, test_df, _, target_test_df =  p7.prepare_data(num_rows=NUM_ROWS, raw=False, perc_filled=0.8)
-df = pd.concat([test_df, target_test_df], axis=1)
-df.index = pd.Index(range(df.shape[0]))
-print('processed data created')
+df = pd.read_csv('../data/df_test.csv')
+df.index = pd.Index(range(1, df.shape[0]+1))
+print('processed data loaded')
 
 app.layout = html.Div([
     html.Div([
@@ -126,7 +124,6 @@ def set_client_ids(selected_dataset):
     Input('client-id', 'value'),
     Input('df-type', 'value'))
 def display_client_data(selected_id, selected_dataset):
-    print(selected_id)
     if selected_dataset == 'raw':
         return [raw_df.to_dict('records')[selected_id]], [{"name": i, "id": i} for i in raw_df.columns]
     else:
@@ -153,7 +150,6 @@ viz_type
         d = df
     
     client_data = d.iloc[selected_id].to_frame().transpose()
-    print(viz_type)
     # Add traces
     if viz_type == 'scatter':
         fig1 = go.Scatter(

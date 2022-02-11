@@ -118,13 +118,13 @@ def cleanup(df, perc_filled, impute=False, **kwargs):
     return filled_df
 
 
-def prepare_data(raw=False, **kwargs):
+def prepare_data(num_rows=None, raw=False, **kwargs):
     """Réalise l'importation des tables,le prétraitement (cleanup) et la séparation en jeux entraînement-test"""
-    
+    print('prepare data...')
     if raw:
-        df = lgbmsf.join_raw_df(num_rows=None)
+        df = lgbmsf.join_raw_df(num_rows)
     else:
-        df = lgbmsf.join_df(num_rows=None)
+        df = lgbmsf.join_df(num_rows)
 
     perc_filled = kwargs.pop('perc_filled', 0.8)
     impute = kwargs.pop('impute', False)
@@ -137,4 +137,3 @@ def prepare_data(raw=False, **kwargs):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y)
     
     return X_train, X_test, y_train, y_test
-        
