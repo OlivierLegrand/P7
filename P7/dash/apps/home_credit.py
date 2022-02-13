@@ -33,25 +33,13 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = 'Home Credit Default Dashboard'
 
-# data_selection = dbc.InputGroup([
-#     dbc.InputGroupText("Select Dataset"),
-#     dbc.DropdownMenu(
-#             id='choice-dataset',
-#             children=[dbc.DropdownMenuItem(d) for d in DATASETS],
-#     )
-# ])
 
 data_selection = dcc.Dropdown(
             id='choice-dataset',
             options=[d for d in DATASETS],
+            value = 'raw data'
 )
         
-# customer_selection = dbc.InputGroup([
-#     dbc.InputGroupText("Select customer"), 
-#     dbc.DropdownMenu(
-#         id="customer-selection",
-#     ),
-# ]),   
 customer_selection = dcc.Dropdown(
         id="customer-selection",
         value=1
@@ -189,7 +177,7 @@ app.layout = dbc.Container(
     Output('xaxis-column', 'options'),
     Input('choice-dataset', 'value'))
 def set_columns_options(selected_dataset):
-    if selected_dataset == 'raw':
+    if selected_dataset == 'raw data':
         return raw_df.columns
     else:
         return df.columns
@@ -200,7 +188,7 @@ def set_columns_options(selected_dataset):
     Input('choice-dataset', 'value')
     )
 def set_columns_options(selected_var, df_type):
-    if df_type == 'raw':
+    if df_type == 'raw data':
         data = raw_df
         cat_cols = [col for col in data.columns if data[col].dtype=='object']
         num_cols = [col for col in data.columns if data[col].dtype!='object']
@@ -218,7 +206,7 @@ def set_columns_options(selected_var, df_type):
     Output('customer-selection', 'options'),
     Input('choice-dataset', 'value'))
 def set_client_ids(selected_dataset):
-    if selected_dataset == 'raw':
+    if selected_dataset == 'raw data':
         return [i for i in raw_df.index]
     else:
         return [i for i in df.index]
@@ -230,7 +218,7 @@ def set_client_ids(selected_dataset):
     Input('choice-dataset', 'value'))
 def display_client_data(selected_id, selected_dataset):
     
-    if selected_dataset == 'raw':
+    if selected_dataset == 'raw data':
         data = raw_df.iloc[selected_id].T.reset_index()
     else:
         data = df.iloc[selected_id].T.reset_index()
@@ -254,7 +242,7 @@ selected_id,
 df_type,
 viz_type
 ):
-    if df_type == 'raw':
+    if df_type == 'raw data':
         d = raw_df
     else:
         d = df
