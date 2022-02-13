@@ -118,7 +118,7 @@ def cleanup(df, perc_filled, impute=False, **kwargs):
 
 def prepare_data(num_rows=None, raw=False, **kwargs):
     """Réalise l'importation des tables,le prétraitement (cleanup) et la séparation en jeux entraînement-test"""
-    
+    print('prepare data...')
     if raw:
         df = lgbmsf.join_raw_df(num_rows)
     else:
@@ -129,7 +129,6 @@ def prepare_data(num_rows=None, raw=False, **kwargs):
     cleaned_df = cleanup(df, perc_filled, impute=impute)
     
     # Séparation entraînement-test
-    feats = cleaned_df.drop(columns=['SK_ID_CURR', 'TARGET']).columns
     X = cleaned_df.drop(columns=['SK_ID_CURR', 'TARGET'])
     y = cleaned_df.TARGET
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y)

@@ -1,25 +1,21 @@
 from dash import Dash, dcc, html, dash_table, State, Input, Output
+import dash_bootstrap_components as dbc
+import dash_daq as daq
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import pandas as pd
-import p7
-import lightgbm_with_simple_features as lgbmsf
 import json
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-app = Dash(__name__, external_stylesheets=external_stylesheets)
-
 with open('./config.json', 'r') as f:
-    CONFIG = json.load(f)
+    CONFIG = json.load(f)   
 
 PATH = CONFIG["PATH"]
 NUM_ROWS = CONFIG["NUM_ROWS"]
 
 
-# Reindexing is needed here otherwise an error is thrown when trying to select a customer
+# Reindexing is needed here to prevent any error when selecting a customer
 raw_df = pd.read_csv('../data/raw_df_test.csv')
 raw_df.index = pd.Index(range(1, raw_df.shape[0]+1))
 print('raw data loaded')
@@ -28,70 +24,170 @@ df = pd.read_csv('../data/df_test.csv')
 df.index = pd.Index(range(1, df.shape[0]+1))
 print('processed data loaded')
 
-app.layout = html.Div([
-    html.Div([
-        html.H1('Home Credit Default Dashboard'),
-        html.Div([
-            html.H4('Choix du dataset'),
-            dcc.RadioItems(
-                ['raw', 'processed'],
-                'raw',
-                id='df-type',
-            )
-        ]),
-        html.Hr(),
-        html.H4('Choix du client'),
-        html.Div([
-            html.Div([
-                dcc.Dropdown(   
-                value=1,
-                id='client-id',
-                ),
-                dash_table.DataTable(
-                    style_table={'overflowX': 'auto', 'height': 400},
-                    fixed_rows={'headers': True},
-                    id='client-data'
-                )
-            ], style={'width':'45%'}),
+# Datasets
+DATASETS = ("raw data", "processed data")
 
-            html.Div([
-                html.Div([
-                    html.Div([
-                        html.H4('Select X axis'),
-                        dcc.Dropdown(
-                            value='CODE_GENDER',
-                            id='xaxis-column',
+
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app.title = 'Home Credit Default Dashboard'
+
+# data_selection = dbc.InputGroup([
+#     dbc.InputGroupText("Select Dataset"),
+#     dbc.DropdownMenu(
+#             id='choice-dataset',
+#             children=[dbc.DropdownMenuItem(d) for d in DATASETS],
+#     )
+# ])
+
+data_selection = dcc.Dropdown(
+            id='choice-dataset',
+            options=[d for d in DATASETS],
+)
+        
+# customer_selection = dbc.InputGroup([
+#     dbc.InputGroupText("Select customer"), 
+#     dbc.DropdownMenu(
+#         id="customer-selection",
+#     ),
+# ]),   
+customer_selection = dcc.Dropdown(
+        id="customer-selection",
+        value=1
+    )
+
+xaxis_selection = dcc.Dropdown(
+    value='CODE_GENDER',
+    id='xaxis-column'
+    )
+
+yaxis_selection = dcc.Dropdown(
+    value='CNT_CHILDREN',
+    id='yaxis-column'
+    )
+
+viz_type = dcc.Dropdown(
+    options=['box', 'scatter'],
+    value='box',
+    id='viz-type'
+)
+
+controls = [
+    dbc.Col([html.H4("Select dataset"), data_selection]), 
+    dbc.Col([html.H4("Select client"), customer_selection])
+    ]
+
+viz_selection = [
+    dbc.Col([html.H4("Select X axis"),xaxis_selection], width=4),
+    dbc.Col([html.H4("Select Y axis"),yaxis_selection], width=4), 
+    dbc.Col([html.H4("Select type of plot"),viz_type], width=4)
+    ]
+
+app.layout = dbc.Container(
+    fluid=True,
+    children=[
+        html.H1('Home Credit Default Dashboard'),
+        html.Hr(),
+        dbc.Row([
+            dbc.Col(
+                children=[
+                    dbc.Row(controls, style={'padding-bottom':'20px'}),
+                    dbc.Row(
+                        dbc.Col(
+                            dash_table.DataTable(
+                                style_table={'overflowX': 'auto', 'height': "450px"},
+                                fixed_rows={'headers': True},
+                                id='client-data'
+                            )
+                        ),
+                    )
+                ],
+                md=6,
+            ),
+            dbc.Col(
+                children=[
+                    dbc.Row(viz_selection),
+                    dbc.Row(
+                        dbc.Col(
+                            dcc.Graph(
+                            id="credit-default",
+                            style={"height": "450px"}
+                            )
                         )
-                    ], style={'width':'30%'}),
-                    html.Div([
-                        html.H4('Select Y axis'),
-                        dcc.Dropdown(
-                            value='CNT_CHILDREN',
-                            id='yaxis-column',
-                        )
-                    ], style={'width':'30%'})
-                ], style={'display':'flex'}),
-                html.Div([
-                    html.H4(
-                        'Visualisation', 
-                        style={'textAlign':'center'}
-                    ),
-                    dcc.RadioItems(
-                            ['box', 'scatter'],
-                            'box',
-                            id='viz-type'
-                    ),
-                    dcc.Graph(id='credit_default')
-                ], )
-            ], style={'width':'45%'})
-        ], style={'width':'100%', 'display':'flex'})
-    ])
-])
+                    )
+                ],
+                md=6,
+            )
+        ], align='start'),
+    ]
+    #style={"margin":"auto", 'display':'flex'},
+)    
+
+# app.layout = html.Div([
+#     html.Div([
+#         html.H1('Home Credit Default Dashboard'),
+#         html.Div([
+#             html.H4('Choix du dataset'),
+#             dcc.RadioItems(
+#                 ['raw', 'processed'],
+#                 'raw',
+#                 id='df-type',
+#             )
+#         ]),
+#         html.Hr(),
+#         html.H4('Choix du client'),
+#         html.Div([
+#             html.Div([
+#                 dcc.Dropdown(   
+#                 value=1,
+#                 id='client-id',
+#                 ),
+#                 dash_table.DataTable(
+#                     style_table={'overflowX': 'auto', 'height': 400},
+#                     fixed_rows={'headers': True},
+#                     id='client-data'
+#                 )
+#             ], style={'width':'45%'}),
+
+#             html.Div([
+#                 html.Div([
+#                     html.Div([
+#                         html.H4('Select X axis'),
+#                         dcc.Dropdown(
+#                             value='CODE_GENDER',
+#                             id='xaxis-column',
+#                         )
+#                     ], style={'width':'30%', 'margin-left':'40px', 'margin-right':'20px'}),
+#                     html.Div([
+#                         html.H4('Select Y axis'),
+#                         dcc.Dropdown(
+#                             value='CNT_CHILDREN',
+#                             id='yaxis-column',
+#                         )
+#                     ], style={'width':'30%', 'margin-left':'20px', 'margin-right':'40px'})
+#                 ], style={'display':'flex'}),
+#                 html.Div([
+#                     html.H4(
+#                         'Visualisation', 
+#                         style={'textAlign':'center'}
+#                     ),
+#                     daq.ToggleSwitch(
+#                         #options=['box', 'scatter'],
+#                         id='viz-type',
+#                         value='box'
+#                     ),
+#                     dcc.Graph(id='credit_default')
+#                 ], )
+#             ], style={'width':'45%'})
+#         ], style={'width':'100%', 'display':'flex'})
+#     ])
+# ])
 
 
 @app.callback(
     Output('xaxis-column', 'options'),
-    Input('df-type', 'value'))
+    Input('choice-dataset', 'value'))
 def set_columns_options(selected_dataset):
     if selected_dataset == 'raw':
         return raw_df.columns
@@ -101,7 +197,7 @@ def set_columns_options(selected_dataset):
 @app.callback(
     Output('yaxis-column', 'options'),
     Input('xaxis-column', 'value'),
-    Input('df-type', 'value')
+    Input('choice-dataset', 'value')
     )
 def set_columns_options(selected_var, df_type):
     if df_type == 'raw':
@@ -119,19 +215,19 @@ def set_columns_options(selected_var, df_type):
         return data.columns
 
 @app.callback(
-    Output('client-id', 'options'),
-    Input('df-type', 'value'))
+    Output('customer-selection', 'options'),
+    Input('choice-dataset', 'value'))
 def set_client_ids(selected_dataset):
     if selected_dataset == 'raw':
-        return list(raw_df.index)
+        return [i for i in raw_df.index]
     else:
-        return list(df.index)
+        return [i for i in df.index]
 
 @app.callback(
     Output('client-data', 'data'),
     Output('client-data', 'columns'),
-    Input('client-id', 'value'),
-    Input('df-type', 'value'))
+    Input('customer-selection', 'value'),
+    Input('choice-dataset', 'value'))
 def display_client_data(selected_id, selected_dataset):
     
     if selected_dataset == 'raw':
@@ -145,11 +241,11 @@ def display_client_data(selected_id, selected_dataset):
 
 
 @app.callback(
-    Output('credit_default', 'figure'),
+    Output('credit-default', 'figure'),
     Input('xaxis-column', 'value'),
     Input('yaxis-column', 'value'),
-    Input('client-id', 'value'),
-    Input('df-type', 'value'),
+    Input('customer-selection', 'value'),
+    Input('choice-dataset', 'value'),
     Input('viz-type', 'value')
     )
 def update_graph(xaxis_column_name,
