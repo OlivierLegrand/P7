@@ -12,7 +12,7 @@ P7/A\ faire.txt
 P7/Flask
 P7/p7_env
 P7/__pycache__
-P7/FastAPI/__pycache__/
+P7/FastAPI/__pycache__
 P7/webinaire_api
 P7/dash/apps/example_apps
 P7/dash/data

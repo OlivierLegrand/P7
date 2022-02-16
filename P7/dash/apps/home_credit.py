@@ -14,12 +14,14 @@ import json
 import joblib
 
 import shap
+import requests 
 
 with open('./config.json', 'r') as f:
     CONFIG = json.load(f)   
 
 PATH = CONFIG["PATH"]
 NUM_ROWS = CONFIG["NUM_ROWS"]
+
 
 # Reindexing is needed here to prevent any error when selecting a customer
 raw_df = pd.read_csv('../data/raw_df_test.csv')
@@ -63,8 +65,9 @@ def predict_default(model, client_features):
     print(prediction, probability)
     return prediction, probability
 
-def waterfall_plot(selected_id, probability):
-    shap_df = pd.DataFrame(data=shap_values.values[[selected_id]], columns=feats)
+
+def waterfall_plot(selected_id, prediction):
+    shap_df = shap_df = pd.DataFrame(data=shap_values.values[[selected_id]], columns=feats)
     high_importance_features = abs(shap_df.iloc[0].values).argsort()[::-1][:10]
     less_important_features = abs(shap_df.iloc[0].values).argsort()[::-1][10:]
     
@@ -78,6 +81,8 @@ def waterfall_plot(selected_id, probability):
     importances = [rest_importance]
     shap_h_importances = shap_df.iloc[0][high_importance_features[::-1][1:]].to_list()
     importances += shap_h_importances
+
+    pred, proba = prediction['prediction'], prediction['probability']
     
     fig = go.Figure(go.Waterfall(
         x = idx1.append(idx2),
@@ -86,7 +91,7 @@ def waterfall_plot(selected_id, probability):
         base = base_value,
         y = importances,
         connector = {"line":{"dash":"dot","width":1, "color":"rgb(63, 63, 63)"}},
-        name = 'Predicted probability of default = {:.2f}'.format(probability),
+        name = 'Predicted probability of default = {:.2f}'.format([proba, 1 - proba][1-pred]),
     ))
     output = base_value + rest_importance + shap_df.iloc[0][high_importance_features[::-1][1:10]].sum()
     fig.add_hline(y=output, line_width=1, line_dash="dash", line_color="black")
@@ -299,6 +304,7 @@ global_feat_importance_card = dbc.Card(
 app.layout = dbc.Container(
     fluid=True,
     children=[
+        dcc.Store(id='intermediate-value'),
         html.H1('Home Credit Default Dashboard'),
         html.Hr(),
         dbc.Row([
@@ -324,12 +330,21 @@ app.layout = dbc.Container(
     ]
 )    
 
+@app.callback(Output('intermediate-value', 'data'), Input('customer-selection', 'value'))
+def fetch_api_response(selected_id):
+
+    client_features = df.iloc[selected_id].to_dict()
+    response = requests.post('http://127.0.0.1:8000/predict', json=client_features)
+    prediction = response.json()
+    # more generally, this line would be
+    # json.dumps(cleaned_df)
+    return prediction
+
 @app.callback(
     Output('predicted-target', 'children'),
-    Input('customer-selection', 'value'))
-def show_pred_result(client_id):
-        client_features = [df.iloc[client_id].to_list()]
-        pred, proba = predict_default(model, client_features)
+    Input('intermediate-value', 'data'))
+def show_pred_result(prediction):
+        pred, proba = prediction['prediction'], prediction['probability']
         message_dict = {
             0:'No default',
             1:'Default'
@@ -403,16 +418,11 @@ def display_client_data(selected_id, selected_dataset):
 @app.callback(
     Output('feat-importances', 'figure'),
     Input('customer-selection', 'value'),
+    Input('intermediate-value', 'data')
     )
-def update_feat_importances(client_id):
-    client_features = [df.iloc[client_id].to_list()]
-    _, proba = predict_default(model, client_features)
-    return waterfall_plot(client_id, proba)
-
-# @app.callback(
-#     Output('global-feat-importances', 'figure'))
-# def show_global_interpretation():
-#     return feature_importance
+def update_feat_importances(client_id, prediction):
+    
+    return waterfall_plot(client_id, prediction)
 
 @app.callback(
     Output('credit-default', 'figure'),
