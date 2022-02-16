@@ -14,7 +14,6 @@ import json
 import joblib
 
 import shap
-import create_waterfall
 
 with open('./config.json', 'r') as f:
     CONFIG = json.load(f)   
@@ -37,10 +36,26 @@ model = joblib.load(open('fitted_lgbm.pickle', "rb"))
 tree_explainer = joblib.load(open('../../treeExplainer.pkl', 'rb'))
 
 # getting shap value
-base_value = tree_explainer.expected_value
 shap_values = tree_explainer(df)
+base_value = tree_explainer.expected_value
 
-
+# calculate the global feature importances and create the plot
+global_feature_importance = pd.DataFrame(data=model.feature_importances_, index=feats, columns=['Feature_importance'])
+f = global_feature_importance["Feature_importance"].sort_values(ascending=False)[:20][::-1]
+fig = px.bar(data_frame=f, 
+x='Feature_importance', 
+labels={"index": "Features"},
+title='Global feature importances',
+width=600)
+fig.update_layout(
+    margin=dict(r=10),
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+fig.update_xaxes(
+    showgrid=True, 
+    gridwidth=1, 
+    gridcolor='LightGrey'
+    )
 
 def predict_default(model, client_features):
     prediction = model.predict(client_features)[0]
@@ -48,36 +63,74 @@ def predict_default(model, client_features):
     print(prediction, probability)
     return prediction, probability
 
-def waterfall_plot(selected_id):
+def waterfall_plot(selected_id, probability):
     shap_df = pd.DataFrame(data=shap_values.values[[selected_id]], columns=feats)
     high_importance_features = abs(shap_df.iloc[0].values).argsort()[::-1][:10]
-    measures = ['absolute'] +  ['relative']*(shap_df.values.shape[1]-2) + ['Total']
-    print(high_importance_features)
-    fig = go.Figure(go.Waterfall(
-        x = ['All other {} features'.format(len(feats)-10)].append([shap_df.columns[high_importance_features[1::-1]]]),
-        textposition = "outside",
-        #measure=measures,
-        text = ['{:.2f}'.format(v) for v in shap_df.iloc[0][high_importance_features[::-1]]],
-        base=base_value,
-        y = shap_df.iloc[0][high_importance_features[::-1]],
-        connector = {"line":{"dash":"dot","width":1, "color":"rgb(63, 63, 63)"}},
-    ))
+    less_important_features = abs(shap_df.iloc[0].values).argsort()[::-1][10:]
+    
+    idx1 = pd.Index(['All other {} features'.format(len(feats)-10)])
+    idx2 = pd.Index(shap_df.columns[high_importance_features[::-1]][1:])
 
-    ymin = round(base_value + np.min(shap_df.iloc[0][high_importance_features]), 2)
-    ymax = round(base_value + np.max(shap_df.iloc[0][high_importance_features]), 2)
-    ylim = [ymin*0.8, ymax]
+    rest_importance = shap_df.iloc[0][less_important_features].sum()
+    text1 = ['{:.2f}'.format(rest_importance)]
+    text1 += ['{:.2f}'.format(v) for v in shap_df.iloc[0][high_importance_features[::-1][1:]]]
+
+    importances = [rest_importance]
+    shap_h_importances = shap_df.iloc[0][high_importance_features[::-1][1:]].to_list()
+    importances += shap_h_importances
+    
+    fig = go.Figure(go.Waterfall(
+        x = idx1.append(idx2),
+        textposition = "outside",
+        text = text1,
+        base = base_value,
+        y = importances,
+        connector = {"line":{"dash":"dot","width":1, "color":"rgb(63, 63, 63)"}},
+        name = 'Predicted probability of default = {:.2f}'.format(probability),
+    ))
+    output = base_value + rest_importance + shap_df.iloc[0][high_importance_features[::-1][1:10]].sum()
+    fig.add_hline(y=output, line_width=1, line_dash="dash", line_color="black")
+    fig.add_hline(y=base_value, line_width=1, line_dash="dash", line_color="black")
+    fig.add_annotation(
+        xref="x domain",
+        x=1.2,
+        y=base_value + rest_importance + shap_df.iloc[0][high_importance_features].sum(),
+        text="Output = {:.2f}".format(output),
+        showarrow=False, 
+    )
+    fig.add_annotation(
+        xref='x domain',
+        x=1.25,
+        y=base_value,
+        text="Base value = {:.2f}".format(base_value),
+        showarrow=False, 
+    )
+    shap_cumsum = np.asarray(base_value + rest_importance + shap_df.iloc[0][high_importance_features][::-1][1:].cumsum())
+    ymin = min(shap_cumsum)
+    ymax = max(shap_cumsum)
+    ylim = [ymin*0.7, ymax*1.1]
 
     fig.update_layout(
-            title = "Default/No default probability explained by shap values",
+            title = "Probability of default explained by shap values",
             showlegend = True,
-        plot_bgcolor='rgba(0,0,0,0)',
-        yaxis=dict(range=[ylim[0],ylim[1]])
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=.02,
+                xanchor="right",
+                x=1
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            yaxis=dict(range=[ylim[0],ylim[1]]),
+            width=700,
+            height=600,
+            margin=dict(
+                r=150
+            )
     )
+
     return fig
-
-
     
-
 # Datasets
 DATASETS = ("raw data", "processed data")
 
@@ -104,26 +157,28 @@ customer_input_group = dbc.InputGroup(
 show_prediction_card = dbc.Card(
     [
         dbc.CardHeader("Client select and predict"),
-        dbc.CardBody(dbc.Row(
-                        [
-
-                            dbc.Col(
-                                [
-                                    html.H5('Select'),
-                                    customer_input_group
-                                ],  
-                                md=6
-                            ),
-                            dbc.Col(
-                                [
-                                    html.H5('Predict'),
-                                    html.H2(id="predicted-target", style={"text-align": "center"})
-                                ], 
-                                md=6
-                            )
-                        ]
-                    )
-            )
+        dbc.CardBody(
+            [
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            [
+                                html.H5('Select'),
+                                customer_input_group
+                            ],  
+                            md=6
+                        ),
+                        dbc.Col(
+                            [
+                                html.H5('Predict'),
+                                html.H2(id="predicted-target", style={"text-align": "center"})
+                            ], 
+                            md=6
+                        )
+                    ]
+                )
+            ]
+        )
     ],
 )
 
@@ -218,11 +273,24 @@ viz_card = dbc.Card(
 
 feat_importance_card = dbc.Card(
     [
-        dbc.CardHeader('Feature importances'),
+        dbc.CardHeader('Local model interpretation'),
         dbc.CardBody(
             dcc.Graph(
                 id='feat-importances',
-                style={'height':'450px'}
+                style={'height':'600px'},
+            )
+        )
+    ]
+)
+
+global_feat_importance_card = dbc.Card(
+    [
+        dbc.CardHeader('Global model interpretation'),
+        dbc.CardBody(
+            dcc.Graph(
+                id='global-feat-importances',
+                style={'height':'500px'},
+                figure=fig
             )
         )
     ]
@@ -238,13 +306,16 @@ app.layout = dbc.Container(
                 children=[
                     show_prediction_card,
                     html.Br(),
-                    client_features_card
+                    client_features_card,
+                    html.Br(),
+                    global_feat_importance_card
                 ],
                 md=6,
             ),
             dbc.Col(
                 children=[
                     viz_card,
+                    html.Br(),
                     feat_importance_card
                 ],
                 md=6,
@@ -333,8 +404,15 @@ def display_client_data(selected_id, selected_dataset):
     Output('feat-importances', 'figure'),
     Input('customer-selection', 'value'),
     )
-def update_feat_importances(selected_id):
-    return waterfall_plot(selected_id)
+def update_feat_importances(client_id):
+    client_features = [df.iloc[client_id].to_list()]
+    _, proba = predict_default(model, client_features)
+    return waterfall_plot(client_id, proba)
+
+# @app.callback(
+#     Output('global-feat-importances', 'figure'))
+# def show_global_interpretation():
+#     return feature_importance
 
 @app.callback(
     Output('credit-default', 'figure'),
@@ -360,17 +438,18 @@ viz_type
     client_data = d.iloc[selected_id].to_frame().transpose()
     # Add traces
     if viz_type == 'scatter':
-        fig1 = px.scatter(d, x=xaxis_column_name, y=yaxis_column_name, color=color_sel)
+        fig1 = px.scatter(d, x=xaxis_column_name, y=yaxis_column_name, color=color_sel, opacity=0.5)
 
     elif viz_type == 'box':
         fig1 = px.box(d, x=xaxis_column_name, y=yaxis_column_name, color=color_sel)
 
     fig2 = px.scatter(client_data, x=xaxis_column_name, y=yaxis_column_name, color=color_sel)
-    fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'red'})
+    fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'green'})
     
     fig1.add_trace(fig2.data[0])
+    fig1.update_layout(plot_bgcolor='rgba(0,0,0,0)')
     fig1.update_xaxes(title_text=xaxis_column_name)
-    fig1.update_yaxes(title_text=yaxis_column_name)
+    fig1.update_yaxes(title_text=yaxis_column_name, showgrid=True, gridwidth=1, gridcolor='Lightgrey')
 
     return fig1
 
