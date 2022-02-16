@@ -1,12 +1,12 @@
 # 1. Library imports
-from typing import List, Dict
+from typing import List, Dict 
 import warnings
 warnings.filterwarnings('ignore')
 import json
 import pandas as pd
 import lightgbm_with_simple_features as lgbmsf
 from lightgbm import LGBMClassifier
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 import joblib
 #from sklearn.model_selection import train_test_split
 
@@ -23,12 +23,23 @@ def clean_df(df):
     filled_df.fillna(filled_df.mean(), inplace=True)
     return filled_df
 
+try:
+    fname = './filled_data.csv'
+    df = pd.read_csv(fname)
+    df_fname = fname
+    print('Dataset {} loaded'.format(df_fname))
+except:
+    df = clean_df(lgbmsf.join_df(num_rows=NUM_ROWS))
 
 
 # 2. Class which describes a single client parameters
-class HomeCreditDefaultClient(BaseModel):
-    client_features: List = []
-    client_name: str = 'Smith'
+#class HomeCreditDefaultClient(BaseModel):
+#    client_features: List = []
+#    client_name: str = 'Smith'
+
+features = df.drop(['SK_ID_CURR', 'TARGET'], axis=1).columns
+f = {k:(float, 0) for k in features}
+HomeCreditDefaultClient = create_model('HCDCModel', **f)
 
 class Response(BaseModel):
     prediction: int
@@ -42,14 +53,8 @@ class HomeCreditDefaultModel:
     #    saves the model
     def __init__(self):
         # Jointures
-        try:
-            fname = './filled_data.csv'
-            self.df = pd.read_csv('./filled_data.csv')
-            self.df_fname = './filled_data.csv'
-            print('Dataset {} loaded'.format(self.df_fname))
-        except:
-            self.df = clean_df(lgbmsf.join_df(num_rows=NUM_ROWS))
-    
+        self.df = df
+        self.df_fname = fname
         self.model_fname_ = 'fitted_lgbm.pickle'
         try:
             self.model = joblib.load(self.model_fname_)
@@ -83,9 +88,7 @@ class HomeCreditDefaultModel:
     # 5. Make a prediction based on the user-entered data
     #    Returns the predicted species with its respective probability
     def predict_default(self, client_features):
-        # Séparation en jeux d'entraînement/test
-        X = self.df.drop(['SK_ID_CURR', 'TARGET'], axis=1).to_numpy()
         data_in = [client_features]
-        prediction = self.model.predict([client_features])
-        probability = self.model.predict_proba([client_features]).max()
+        prediction = self.model.predict(data_in)
+        probability = self.model.predict_proba(data_in).max()
         return prediction[0], probability
