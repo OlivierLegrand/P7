@@ -374,34 +374,34 @@ def join_raw_df(num_rows=None):
     with timer("Process bureau and bureau_balance"):
         bureau = pd.read_csv(PATH+'bureau.csv', nrows = num_rows)
         bb = pd.read_csv(PATH+'bureau_balance.csv', nrows = num_rows)
-        bureau = bureau.join(bb.set_index('SK_ID_BUREAU'), how='left', on='SK_ID_BUREAU')
+        bureau = bureau.join(bb.set_index('SK_ID_BUREAU'), how='inner', on='SK_ID_BUREAU', )
         bureau.drop(['SK_ID_BUREAU'], axis=1, inplace= True)
         print("Bureau df shape:", bureau.shape)
-        df = df.join(bureau.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_bureau')
+        df = df.join(bureau.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_bureau')
         del bureau, bb
         gc.collect()
     with timer("Process previous_applications"):
         prev = pd.read_csv(PATH+'previous_application.csv', nrows = num_rows)
         print("Previous applications df shape:", prev.shape)
-        df = df.join(prev.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_prev')
+        df = df.join(prev.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_prev')
         del prev
         gc.collect()
     with timer("Process POS-CASH balance"):
         pos = pd.read_csv(PATH+'POS_CASH_balance.csv', nrows = num_rows)
         print("Pos-cash balance df shape:", pos.shape)
-        df = df.join(pos.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_pos')
+        df = df.join(pos.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_pos')
         del pos
         gc.collect()
     with timer("Process installments payments"):
         ins = pd.read_csv(PATH+'installments_payments.csv', nrows = num_rows)
         print("Installments payments df shape:", ins.shape)
-        df = df.join(ins.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_ins')
+        df = df.join(ins.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_ins')
         del ins
         gc.collect()
     with timer("Process credit card balance"):
         cc = pd.read_csv(PATH+'credit_card_balance.csv', nrows = num_rows)
         print("Credit card balance df shape:", cc.shape)
-        df = df.join(cc.set_index('SK_ID_CURR'), how='left', on='SK_ID_CURR', rsuffix='_cc')
+        df = df.join(cc.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_cc')
         del cc
         gc.collect()
     

@@ -1,5 +1,5 @@
 # 1. Library imports
-from typing import List, Dict 
+from typing import List, Dict
 import warnings
 warnings.filterwarnings('ignore')
 import json
@@ -44,6 +44,8 @@ HomeCreditDefaultClient = create_model('HCDCModel', **f)
 class Response(BaseModel):
     prediction: int
     probability: float
+
+
 
 
 # 3. Class for training the model and making predictions

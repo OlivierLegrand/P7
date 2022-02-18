@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 import json
 import joblib
+import time
+from contextlib import contextmanager
 
 import shap
 import requests 
@@ -22,24 +24,66 @@ with open('./config.json', 'r') as f:
 PATH = CONFIG["PATH"]
 NUM_ROWS = CONFIG["NUM_ROWS"]
 
+@contextmanager
+def timer(title):
+    t0 = time.time()
+    yield
+    print("{} - done in {:.0f}s".format(title, time.time() - t0))
 
 # Reindexing is needed here to prevent any error when selecting a customer
-raw_df = pd.read_csv('../data/raw_df_test.csv')
-raw_df.index = pd.Index(range(1, raw_df.shape[0]+1))
-print('raw data loaded')
+#raw_df = pd.read_csv('../data/raw_df_test.csv')
+#raw_df.index = pd.Index(range(1, raw_df.shape[0]+1))
+#print('raw data loaded')
 
-df = pd.read_csv('../data/df_test.csv')
-df.index = pd.Index(range(1, df.shape[0]+1))
-feats = df.columns
-print('processed data loaded')
+# 3. Load data
+with timer('Loading loan application...'):
+    app_train = pd.read_csv(PATH+'application_train.csv', nrows=NUM_ROWS)
+with timer('Loading previous credits (raw)...'):
+    bureau = pd.read_csv(PATH+'bureau.csv', nrows=NUM_ROWS)
+with timer('Loading previous credits monthly balance...'):
+    bureau_balance = pd.read_csv(PATH+'bureau_balance.csv', nrows=NUM_ROWS)
+with timer('Loading previous applications...'):
+    previous_app = pd.read_csv(PATH+'previous_application.csv', nrows=NUM_ROWS)
+with timer('Loading previous POS & card loans monthly balance...'):
+    pos_cash = pd.read_csv(PATH+'POS_CASH_balance.csv', nrows=NUM_ROWS)
+with timer('Loading repayment history...'):
+    installment_payments = pd.read_csv(PATH+'installments_payments.csv', nrows=NUM_ROWS)
+with timer('Loading previous credit card monthly balance...'):
+    credit_card_balance = pd.read_csv(PATH+'credit_card_balance.csv', nrows=NUM_ROWS)
+with timer('Loading processed data'):
+    processed_data = pd.read_csv(PATH+'complete_test.csv', nrows=NUM_ROWS)
+
+# Les index récupérables sont restreints aux clients sur lesquels on applique le modèle
+client_ids = processed_data['SK_ID_CURR'].sort_values().to_list()[:NUM_ROWS]
+#bb_id = bureau.loc[bureau.SK_ID_CURR.isin(client_ids), 'SK_ID_BUREAU'],
+
+data_dict = {
+    "loan application (raw)":app_train, 
+    'previous credits (raw)':bureau,
+    'previous credits monthly balance': bureau_balance,
+    'previous applications': previous_app,
+    'previous POS & card loans monthly balance': pos_cash,
+    'repayment history': installment_payments,
+    'previous credit card monthly balance': credit_card_balance,
+    'processed data': processed_data
+}
+
+#df = pd.read_csv('../data/df_test.csv')
+#df.index = pd.Index(range(1, df.shape[0]+1))
+feats = data_dict['processed data'].drop(['SK_ID_CURR'], axis=1).columns
+#print('processed data loaded')
+
+
+
 
 # load prediction and explainer models
-model = joblib.load(open('fitted_lgbm.pickle', "rb"))
-tree_explainer = joblib.load(open('../../treeExplainer.pkl', 'rb'))
-
+model = joblib.load(open(PATH+'fitted_lgbm.pickle', "rb"))
+#tree_explainer = joblib.load(open('../../treeExplainer.pkl', 'rb'))
+shap_values = joblib.load(open('../../shap_values.pkl', 'rb'))
+base_value = joblib.load(open('../../base_value.pkl', 'rb'))
 # getting shap value
-shap_values = tree_explainer(df)
-base_value = tree_explainer.expected_value
+#shap_values = tree_explainer(processed_data.drop(['SK_ID_CURR'], axis=1))
+#base_value = tree_explainer.expected_value
 
 # calculate the global feature importances and create the plot
 global_feature_importance = pd.DataFrame(data=model.feature_importances_, index=feats, columns=['Feature_importance'])
@@ -67,7 +111,9 @@ def predict_default(model, client_features):
 
 
 def waterfall_plot(selected_id, prediction):
-    shap_df = shap_df = pd.DataFrame(data=shap_values.values[[selected_id]], columns=feats)
+    df = data_dict['processed data']
+    shap_id = df[df.SK_ID_CURR==selected_id].index
+    shap_df = pd.DataFrame(data=shap_values.values[shap_id], columns=feats)
     high_importance_features = abs(shap_df.iloc[0].values).argsort()[::-1][:10]
     less_important_features = abs(shap_df.iloc[0].values).argsort()[::-1][10:]
     
@@ -137,7 +183,14 @@ def waterfall_plot(selected_id, prediction):
     return fig
     
 # Datasets
-DATASETS = ("raw data", "processed data")
+DATASETS = ("loan application (raw)",
+"previous credits (raw)",
+"previous credits monthly balance",
+"previous POS & card loans monthly balance",
+"previous credit card monthly balance",
+"previous applications",
+"repayment history",
+ "processed data")
 
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -147,7 +200,8 @@ app.title = 'Home Credit Default Dashboard'
 
 customer_selection = dcc.Dropdown(
         id="customer-selection",
-        value=1,
+        options=client_ids,
+        value=client_ids[0],
         style={'width':'75%'}
     )
 
@@ -190,7 +244,7 @@ show_prediction_card = dbc.Card(
 data_selection_dropdown = dcc.Dropdown(
             id='choice-dataset',
             options=[d for d in DATASETS],
-            value = 'raw data',
+            value = 'loan application (raw)',
             style={'width':'50%'}
 )
 
@@ -259,7 +313,7 @@ viz_card = dbc.Card(
                 html.Br(),
                 dbc.Row(
                     [
-                        dbc.Col([html.H5("Split along:"), color_selection], md=4)
+                        dbc.Col([html.H5("Additional grouping variable:"), color_selection], md=4)
                     ]
                 ),
                 html.Hr(),
@@ -330,14 +384,15 @@ app.layout = dbc.Container(
     ]
 )    
 
-@app.callback(Output('intermediate-value', 'data'), Input('customer-selection', 'value'))
+@app.callback(
+    Output('intermediate-value', 'data'),
+    Input('customer-selection', 'value'))
 def fetch_api_response(selected_id):
-
-    client_features = df.iloc[selected_id].to_dict()
+    df = data_dict['processed data']
+    client_idx = df[df.SK_ID_CURR==selected_id].index[0]
+    client_features = df[df.SK_ID_CURR==selected_id].to_dict(orient='index')[client_idx]
     response = requests.post('http://127.0.0.1:8000/predict', json=client_features)
     prediction = response.json()
-    # more generally, this line would be
-    # json.dumps(cleaned_df)
     return prediction
 
 @app.callback(
@@ -353,50 +408,54 @@ def show_pred_result(prediction):
 
 @app.callback(
     Output('xaxis-column', 'options'),
+    Output('xaxis-column', 'value'),
     Input('choice-dataset', 'value'))
 def set_columns_options(selected_dataset):
-    if selected_dataset == 'raw data':
-        return raw_df.columns
-    else:
-        return df.columns
+    columns = data_dict[selected_dataset].columns 
+    return columns, columns[0]
 
 @app.callback(
     Output('color-selection', 'options'),
+    Output('color-selection', 'value'),
     Input('choice-dataset', 'value'))
 def set_columns_options(selected_dataset):
-    if selected_dataset == 'raw data':
-        return [col for col in raw_df.columns if raw_df[col].dtype=='object']
+    df = data_dict[selected_dataset]
+    columns = df.columns
+    if selected_dataset != 'processed data':
+        return [col for col in columns if df[col].nunique()<=2], columns[0]
     else:
-        return [col for col in df.columns if df[col].nunique()<=2]
+        return [col for col in columns if df[col].dtype=='object'], columns[0]
 
 @app.callback(
     Output('yaxis-column', 'options'),
+    Output('yaxis-column', 'value'),
     Input('xaxis-column', 'value'),
     Input('choice-dataset', 'value')
     )
-def set_columns_options(selected_var, df_type):
-    if df_type == 'raw data':
-        data = raw_df
-        cat_cols = [col for col in data.columns if data[col].dtype=='object']
-        num_cols = [col for col in data.columns if data[col].dtype!='object']
+def set_columns_options(selected_var, selected_dataset):
+    df = data_dict[selected_dataset]
+    if selected_dataset != 'processed data':
+        cat_cols = [col for col in df.columns if df[col].dtype=='object']
+        num_cols = [col for col in df.columns if df[col].dtype!='object']
     else:
-        data = df
-        cat_cols = [col for col in data.columns if data[col].nunique()<=2]
-        num_cols = [col for col in data.columns if data[col].nunique()>2]
+        cat_cols = [col for col in df.columns if df[col].nunique()<=2]
+        num_cols = [col for col in df.columns if df[col].nunique()>2]
 
     if selected_var in cat_cols:    
-        return num_cols
+        return num_cols, num_cols[0]
     else:
-        return data.columns
+        columns = df.columns
+        return columns, columns[0]
 
-@app.callback(
-    Output('customer-selection', 'options'),
-    Input('choice-dataset', 'value'))
-def set_client_ids(selected_dataset):
-    if selected_dataset == 'raw data':
-        return [i for i in raw_df.index]
-    else:
-        return [i for i in df.index]
+# @app.callback(
+#     Output('customer-selection', 'options'),
+#     Input('choice-dataset', 'value'))
+# def set_client_ids(selected_dataset):
+#     df = data_dict[selected_dataset]
+#     if selected_dataset == 'previous credits monthly balance':
+#         return df['SK_ID_BUREAU'].to_list()
+#     else:
+#         return df['SK_ID_CURR'].to_list()
 
 @app.callback(
     Output('client-data', 'data'),
@@ -405,12 +464,16 @@ def set_client_ids(selected_dataset):
     Input('choice-dataset', 'value'))
 def display_client_data(selected_id, selected_dataset):
     
-    if selected_dataset == 'raw data':
-        data = raw_df.iloc[selected_id].T.reset_index()
+    if selected_dataset == 'previous credits monthly balance':
+        bb_id = bureau.loc[bureau.SK_ID_CURR==selected_id, 'SK_ID_BUREAU']
+        #data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)].T.reset_index()
+        data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)]
     else:
-        data = df.iloc[selected_id].T.reset_index()
+        df = data_dict[selected_dataset]
+        #data = df[df.SK_ID_CURR==selected_id].T.reset_index()
+        data = df[df.SK_ID_CURR==selected_id]
 
-    data.columns = ['Feature', 'Value']
+    #data.columns = ['Feature', 'Value']
 
     return data.to_dict('records'), [{"name": i, "id": i} for i in data.columns]
 
@@ -437,15 +500,22 @@ def update_graph(xaxis_column_name,
 yaxis_column_name,
 color_sel,
 selected_id,
-df_type,
+selected_dataset,
 viz_type
 ):
-    if df_type == 'raw data':
-        d = raw_df
+    # if df_type == 'raw data':
+    #     d = raw_df
+    # else:
+    #     d = df
+
+    d = data_dict[selected_dataset]
+    if selected_dataset == 'previous credits monthly balance':
+        bb_ids = bureau.loc[bureau.SK_ID_CURR==selected_id, 'SK_ID_BUREAU']
+        #data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)].T.reset_index()
+        client_data = d[d.SK_ID_BUREAU.isin(bb_ids)]
     else:
-        d = df
+        client_data = d[d.SK_ID_CURR==selected_id]
     
-    client_data = d.iloc[selected_id].to_frame().transpose()
     # Add traces
     if viz_type == 'scatter':
         fig1 = px.scatter(d, x=xaxis_column_name, y=yaxis_column_name, color=color_sel, opacity=0.5)
