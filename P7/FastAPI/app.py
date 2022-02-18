@@ -2,6 +2,7 @@ from fastapi import FastAPI
 import uvicorn
 from Model import HomeCreditDefaultModel, HomeCreditDefaultClient, Response
 import numpy as np
+import pandas as pd
 
 # 2. Create app and model objects
 app = FastAPI()

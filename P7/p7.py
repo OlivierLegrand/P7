@@ -107,11 +107,11 @@ def impute(df, iterative=False, **kwargs):
     return pd.DataFrame(data=filled_df, columns=df.columns)
     
     
-def cleanup(df, perc_filled, impute=False, **kwargs):
+def cleanup(df, perc_filled, imput=False, **kwargs):
     """Réalise le nettoyage des colonnes vides et l'imputation en cascade"""
     
     cleaned_df = dropna_cols(df, perc_filled)
-    if impute:
+    if imput:
         filled_df = impute(cleaned_df, **kwargs)
     else:
         filled_df = cleaned_df.dropna(how='any')
@@ -129,7 +129,7 @@ def prepare_data(num_rows=None, raw=False, **kwargs):
     perc_filled = kwargs.pop('perc_filled', 0.8)
     impute = kwargs.pop('impute', False)
     cleaned_df = cleanup(df, perc_filled, impute=impute)
-    
+
     # Séparation entraînement-test
     feats = cleaned_df.drop(columns=['SK_ID_CURR', 'TARGET']).columns
     X = cleaned_df.drop(columns=['SK_ID_CURR', 'TARGET'])
