@@ -23,6 +23,8 @@ import lightgbm_with_simple_features as lgbmsf
 
 import shap
 
+with open('config.json', 'r') as f:
+    config = json.load(f)
 
 @contextmanager
 def timer(title):
@@ -265,7 +267,7 @@ def create_shap_data(model, path='./sample_data/'):
 
 def main(num_rows=None):
     print('Creating datasets')
-    create_datasets(num_rows=num_rows)
+    create_datasets(num_rows=num_rows, path_to_save=config['SAVE_TO'], path_to_read=config['READ_FROM'])
     print('Preparing data')
     X_train, X_test, y_train, y_test = prepare_data()
     print('Training model...')

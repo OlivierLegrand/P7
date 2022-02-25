@@ -1,0 +1,6 @@
+{
+"SAVE_TO":"sample_data",
+"READ_FROM":"files",
+"NUM_ROWS":10000
+}
+
