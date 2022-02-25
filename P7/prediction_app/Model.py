@@ -1,0 +1,84 @@
+# 1. Library imports
+from typing import List, Dict
+import warnings
+warnings.filterwarnings('ignore')
+import json
+import pandas as pd
+#import lightgbm_with_simple_features as lgbmsf
+#from lightgbm import LGBMClassifier
+from pydantic import BaseModel, create_model
+import joblib
+#from sklearn.model_selection import train_test_split
+
+with open('config.json', 'r') as f:
+    config = json.load(f)
+    
+NUM_ROWS = config["NUM_ROWS"]
+PATH = config["PATH"]
+
+# def clean_df(df):
+#     nna = df.notna().sum()/df.shape[0]
+#     nfilled_cols = nna[nna<0.7].index
+#     filled_df = df.drop(columns=nfilled_cols)
+#     filled_df.fillna(filled_df.mean(), inplace=True)
+#     return filled_df
+
+#try:
+fname = PATH+'df_test.csv'
+df = pd.read_csv(fname, nrows=1)
+df_fname = fname
+print('Dataset {} loaded'.format(df_fname))
+#except:   
+#df = clean_df(lgbmsf.join_df(num_rows=NUM_ROWS))
+
+features = df.drop(['SK_ID_CURR', 'TARGET'], axis=1, errors='ignore').columns
+f = {k:(float, 0) for k in features}
+HomeCreditDefaultClient = create_model('HCDCModel', **f)
+
+class PredictResponse(BaseModel):
+    prediction: int
+    probability: float
+
+# 3. Class for training the model and making predictions
+class HomeCreditDefaultModel:
+    def __init__(self):
+        # Jointures
+        #self.df = df
+        #self.df_fname = fname
+        self.model_fname_ = PATH+'fitted_lgbm.pkl'
+        try:
+            self.model = joblib.load(self.model_fname_)
+            print('Model loaded:', self.model)
+        except Exception as _:
+            print('You need to train the model first!')
+            #self.model = self._train_model()
+            #joblib.dump(self.model, self.model_fname_)
+        
+
+    # 4. Perform model training using the LightGBM classifier
+    # def _train_model(self):
+    #     X = self.df.drop(['SK_ID_CURR', 'TARGET'], axis=1, errors='ignore')
+    #     y = self.df['TARGET']
+
+    #     bestmodel = LGBMClassifier(early_stopping_round=200,
+    #                            objective='binary',
+    #                            metric='AUC',
+    #                            is_unbalance=True,
+    #                            silent=False,
+    #                            verbosity=-1,
+    #                            colsample_bytree=0.5,
+    #                            max_depth=-1, 
+    #                            n_estimators=100,
+    #                            num_leaves= 10)
+
+    #     model = bestmodel.fit(X, y)
+    #     return model
+
+
+    # 5. Make a prediction based on the user-entered data
+    #    Returns the predicted species with its respective probability
+    def predict(self, client_features):
+        data_in = [client_features]
+        prediction = self.model.predict(data_in)
+        probability = self.model.predict_proba(data_in)[0][1]
+        return prediction[0], probability

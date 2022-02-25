@@ -17,8 +17,6 @@
 # - Removed index from features
 # - Use standard KFold CV (not stratified)
 
-from pickle import FALSE
-from tkinter import N
 import numpy as np
 import pandas as pd
 import gc
@@ -43,7 +41,7 @@ NUM_ROWS = CONFIG["NUM_ROWS"]
 def timer(title):
     t0 = time.time()
     yield
-    print("{} - done in {:.0f}s".format(title, time.time() - t0))
+    print("{} - done in {:.0f}s".format(title, time.time() - t0))   
 
 # One-hot encoding for categorical columns with get_dummies
 def one_hot_encoder(df, nan_as_category = True):
@@ -332,31 +330,31 @@ def display_importances(feature_importance_df_):
 def join_df(num_rows=None):
     df = application_train_test(num_rows)
     with timer("Process bureau and bureau_balance"):
-        bureau = bureau_and_balance(num_rows)
+        bureau = bureau_and_balance()
         print("Bureau df shape:", bureau.shape)
         df = df.join(bureau, how='left', on='SK_ID_CURR')
         del bureau
         gc.collect()
     with timer("Process previous_applications"):
-        prev = previous_applications(num_rows)
+        prev = previous_applications()
         print("Previous applications df shape:", prev.shape)
         df = df.join(prev, how='left', on='SK_ID_CURR')
         del prev
         gc.collect()
     with timer("Process POS-CASH balance"):
-        pos = pos_cash(num_rows)
+        pos = pos_cash()
         print("Pos-cash balance df shape:", pos.shape)
         df = df.join(pos, how='left', on='SK_ID_CURR')
         del pos
         gc.collect()
     with timer("Process installments payments"):
-        ins = installments_payments(num_rows)
+        ins = installments_payments()
         print("Installments payments df shape:", ins.shape)
         df = df.join(ins, how='left', on='SK_ID_CURR')
         del ins
         gc.collect()
     with timer("Process credit card balance"):
-        cc = credit_card_balance(num_rows)
+        cc = credit_card_balance()
         print("Credit card balance df shape:", cc.shape)
         df = df.join(cc, how='left', on='SK_ID_CURR')
         del cc
@@ -370,38 +368,44 @@ def join_raw_df(num_rows=None):
     fonction réalise les jointures des différentes tables sans réaliser de traitement sur les variables."""
     
     df = pd.read_csv(PATH+'application_train.csv', nrows= num_rows)
+    skidcurr = df.SK_ID_CURR.unique()
     print("Train samples: {}".format(len(df)))
     with timer("Process bureau and bureau_balance"):
-        bureau = pd.read_csv(PATH+'bureau.csv', nrows = num_rows)
-        bb = pd.read_csv(PATH+'bureau_balance.csv', nrows = num_rows)
-        bureau = bureau.join(bb.set_index('SK_ID_BUREAU'), how='inner', on='SK_ID_BUREAU', )
+        bureau = pd.read_csv(PATH+'bureau.csv')
+        bureau = bureau[bureau.SK_ID_CURR.isin(skidcurr)]
+        bb = pd.read_csv(PATH+'bureau_balance.csv')
+        bureau = bureau.join(bb, how='inner', on='SK_ID_BUREAU', )
         bureau.drop(['SK_ID_BUREAU'], axis=1, inplace= True)
         print("Bureau df shape:", bureau.shape)
-        df = df.join(bureau.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_bureau')
+        df = df.join(bureau, how='inner', on='SK_ID_CURR', rsuffix='_bureau')
         del bureau, bb
         gc.collect()
     with timer("Process previous_applications"):
-        prev = pd.read_csv(PATH+'previous_application.csv', nrows = num_rows)
+        prev = pd.read_csv(PATH+'previous_application.csv')
+        prev = prev[prev.SK_ID_CURR.isin(skidcurr)]
         print("Previous applications df shape:", prev.shape)
-        df = df.join(prev.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_prev')
+        df = df.join(prev, how='inner', on='SK_ID_CURR', rsuffix='_prev')
         del prev
         gc.collect()
     with timer("Process POS-CASH balance"):
-        pos = pd.read_csv(PATH+'POS_CASH_balance.csv', nrows = num_rows)
+        pos = pd.read_csv(PATH+'POS_CASH_balance.csv')
+        pos = pos[pos.SK_ID_CURR.isin(skidcurr)]
         print("Pos-cash balance df shape:", pos.shape)
-        df = df.join(pos.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_pos')
+        df = df.join(pos, how='left', on='SK_ID_CURR', rsuffix='_pos')
         del pos
         gc.collect()
     with timer("Process installments payments"):
-        ins = pd.read_csv(PATH+'installments_payments.csv', nrows = num_rows)
+        ins = pd.read_csv(PATH+'installments_payments.csv')
+        ins = ins[ins.SK_ID_CURR.isin(skidcurr)]
         print("Installments payments df shape:", ins.shape)
-        df = df.join(ins.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_ins')
+        df = df.join(ins, how='inner', on='SK_ID_CURR', rsuffix='_ins')
         del ins
         gc.collect()
     with timer("Process credit card balance"):
-        cc = pd.read_csv(PATH+'credit_card_balance.csv', nrows = num_rows)
+        cc = pd.read_csv(PATH+'credit_card_balance.csv')
+        cc = cc[cc.SK_ID_CURR.isin(skidcurr)]
         print("Credit card balance df shape:", cc.shape)
-        df = df.join(cc.set_index('SK_ID_CURR'), how='inner', on='SK_ID_CURR', rsuffix='_cc')
+        df = df.join(cc, how='inner', on='SK_ID_CURR', rsuffix='_cc')
         del cc
         gc.collect()
     
