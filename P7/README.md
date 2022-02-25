@@ -26,7 +26,7 @@ Ceci lancera l'API de prédiction. Il est nécessaire de lancer l'API de prédic
 
 ## III Procédures pour déployer les applications sur le web
 Les applications peuvent être déployées sur le web via heroku. Les fichiers nécessaires au déploiement (Procfile, requirements.txt, runtime.txt) sont déjà présents et configurés dans les dossiers des applications. Pour effectuer le déploiement:
-- copier le(s) répertoire(s) de l'application à déployer à l'emplacement de votre choix
+- copier le(s) répertoire(s) de(s) (l')application(s) à déployer à l'emplacement de votre choix
 - Suivre les instructions données à cette adresse: https://devcenter.heroku.com/articles/git
 
 ## I Méthodologie d'entraînement du modèle (2 pages maximum)
