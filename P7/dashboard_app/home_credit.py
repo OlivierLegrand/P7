@@ -26,9 +26,7 @@ with open('config.json', 'r') as f:
     CONFIG = json.load(f)   
 
 PATH = CONFIG["PATH"]
-QUERY_URL = CONFIG["QUERY_URL_WEB"]
-print("PATH:", PATH)
-print("QUERY_URL:", QUERY_URL)
+QUERY_URL = CONFIG["QUERY_URL_LOCAL"]
 
 @contextmanager
 def timer(title):
@@ -378,10 +376,8 @@ def fetch_api_response(selected_id):
 def fetch_api_shap(selected_id):
     df = data_dict['processed data']
     client_idx = df[df.SK_ID_CURR==selected_id].index[0]
-    print(client_idx)
     response = requests.post(QUERY_URL+'shap_values', json=[int(client_idx)])
     shap_values = np.asarray(response.json())
-    print(shap_values[0][1])
     return shap_values
 
 @app.callback(
