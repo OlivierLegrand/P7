@@ -26,8 +26,9 @@ with open('config.json', 'r') as f:
     CONFIG = json.load(f)   
 
 PATH = CONFIG["PATH"]
-NUM_ROWS = CONFIG["NUM_ROWS"]
+QUERY_URL = CONFIG["QUERY_URL_WEB"]
 print("PATH:", PATH)
+print("QUERY_URL:", QUERY_URL)
 
 @contextmanager
 def timer(title):
@@ -69,9 +70,7 @@ data_dict = {
 
 feats = data_dict['processed data'].drop(['SK_ID_CURR'], axis=1).columns
 model = joblib.load(open(PATH+'fitted_lgbm.pkl', "rb"))
-
-response = requests.get('http://127.0.0.1:8000/base_value')
-#response = requests.get('https://home-credit-default-app.herokuapp.com/base_value')
+response = requests.get(QUERY_URL+'base_value')
 base_value = response.json()
 
 # calculate the global feature importances and create the plot
@@ -369,8 +368,7 @@ def fetch_api_response(selected_id):
     df = data_dict['processed data']
     client_idx = df[df.SK_ID_CURR==selected_id].index[0]
     client_features = df[df.SK_ID_CURR==selected_id].to_dict(orient='index')[client_idx]
-    response = requests.post('http://127.0.0.1:8000/predict', json=client_features)
-    #response = requests.post('https://home-credit-default-app.herokuapp.com/predict', json=client_features)
+    response = requests.post(QUERY_URL+'predict', json=client_features)
     prediction = response.json()
     return prediction
 
@@ -381,8 +379,7 @@ def fetch_api_shap(selected_id):
     df = data_dict['processed data']
     client_idx = df[df.SK_ID_CURR==selected_id].index[0]
     print(client_idx)
-    response = requests.post('http://127.0.0.1:8000/shap_values/', json=[int(client_idx)])
-    #response = requests.post('https://home-credit-default-app.herokuapp.com/shap_values', json=[int(client_idx)])
+    response = requests.post(QUERY_URL+'shap_values', json=[int(client_idx)])
     shap_values = np.asarray(response.json())
     print(shap_values[0][1])
     return shap_values

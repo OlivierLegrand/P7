@@ -1,4 +1,3 @@
-# Note méthodologique
 # Projet 7: Implémentez un algorithme de scoring
 
 # I Préparation des fichiers pour l'utilisation du répertoire
@@ -78,9 +77,14 @@ Il faut modifier le fichier config.json ainsi:
 
 Pour déployer l'application, suivre les instructions données à cette adresse: https://devcenter.heroku.com/articles/git
 
-## I Méthodologie d'entraînement du modèle (2 pages maximum)
-Le modèle utilisé ici requiert _a minima_ l'utilisation de la table application_train.csv, mais il fonctionne aussi bien si les autres tables sont jointes à la première.\
-Les jointures sont réalisées par la fonction application_train_test du module lightgbm_with_simple_features.
+
+## III Prédiction de la capacité de remboursement d'emprunt des clients de Home Credit
+Home Credit est une institution financière internationale non bancaire fondée en 1997 en République tchèque et basée aux Pays-Bas. La société opère dans 9 pays et se concentre sur les prêts à tempérament principalement aux personnes ayant peu ou pas d'antécédents de crédit. [Wikipedia](https://en.wikipedia.org/wiki/Home_Credit). A cause de la nature même de sa clientèle, Home Credit a recours à des sources d'informations variées - notamment des informations liées à l'utilisation des services de téléphonie et aux transactions effectuées par les clients - pour prédire la capacité de remboursement des clients. C'est une partie de ces données (anonymisées) que Home Credit a mis en ligne  (https://www.kaggle.com/c/home-credit-default-risk/data), et sur lesquelles le présent travail repose.
+
+### III.1 Présentation du modèle
+Les données sont contituées de huit tables, liées les unes aux autres via une ou pusieurs clés comme indiqué sur le shema ci-dessous [home_credit](home_credit.png)
+Les descriptions des différentes tables peuvent être consultées [ici](https://www.kaggle.com/c/home-credit-default-risk/data).\
+Le modèle utilise toutes ces tables, Les jointures et le _feature engineering_ étant réalisés par la fonction main() du module p7.py, très étroitement inspirée du kernel kaggle [LightGBM with simple features](https://www.kaggle.com/jsaguiar/lightgbm-with-simple-features/script).
 
 L'entraînement du modèle est réalisé en scindant le jeu de données en un jeu de d'entraînement et un jeu de test dans des proportions 0.7 - 0.3, en prenant en compte le déséquilibre des classes grâce au paramètre stratify=True.\
 Pour la détermination des meilleurs hyperparamètres, le jeu d'entraînement est lui-même scindé en 5 plis grâce à la méthode StratifiedKold qui permet de prendre en compte le déséquilibre des classes.
