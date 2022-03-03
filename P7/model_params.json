@@ -1,0 +1,1 @@
+{"scale_pos_weight": 5, "num_leaves": 127, "n_estimators": 10000, "learning_rate": 0.005, "lambda_l2": 2.5, "lambda_l1": 5.0, "colsample_bytree": 0.7, "bagging_fraction": 0.5}

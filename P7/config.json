@@ -1,6 +1,6 @@
 {
-"SAVE_TO":"sample_data",
-"READ_FROM":"project_files",
+"SAVE_TO":"sample_data/",
+"READ_FROM":"project_files/",
 "NUM_ROWS":10000
 }
 

@@ -34,7 +34,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 with open('config.json', 'r') as f:
     CONFIG = json.load(f)
 
-PATH = CONFIG["PATH"]
+PATH = CONFIG["READ_FROM"]
 NUM_ROWS = CONFIG["NUM_ROWS"]
 
 @contextmanager
@@ -413,12 +413,12 @@ def join_raw_df(num_rows=None):
     
 def main(debug = False):
     num_rows = NUM_ROWS if debug else None
-    df = join_df(num_rows, debug)
-    with timer("Run LightGBM with kfold"):
-        feat_importance = kfold_lightgbm(df, num_folds= 10, stratified= True, debug= debug)
+    df = join_df(num_rows)
+    #with timer("Run LightGBM with kfold"):
+    #    feat_importance = kfold_lightgbm(df, num_folds= 10, stratified= True, debug= debug)
 
 if __name__ == "__main__":
     print("Coucou")
     submission_file_name = "submission_kernel02.csv"
-#     with timer("Full model run"):
-#         main(debug=True)
+    with timer("Full model run"):
+        main(debug=True)

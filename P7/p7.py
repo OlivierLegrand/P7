@@ -133,7 +133,7 @@ def cleanup(df, perc_filled, imput=False, **kwargs):
     return filled_df
 
 
-def create_datasets(num_rows=None, path_to_save='./sample_data/', path_to_read='./files/data/'):
+def create_datasets(num_rows=None, save=True, path_to_save='./sample_data/', path_to_read='./files/data/'):
     """Réalise l'importation des tables depuis path_to_read,le prétraitement (cleanup) et 
     enregistre les jeux de données créés dans le dossier désigné par path_to_save"""
     
@@ -153,10 +153,6 @@ def create_datasets(num_rows=None, path_to_save='./sample_data/', path_to_read='
 
     filled_data = pd.concat([filled_data_cont, filled_data_ohc], axis=1)
     #filled_data.index = pd.Index(range(filled_data.shape[0]))
-
-    # enregistre filled_data 
-    with timer('Saving cleaned dataset to {}...'.format(path_to_save+'filled_data.csv')):
-            filled_data.to_csv(path_to_save+'filled_data.csv', index_label=False)
 
     # Récupération des clients présents dans le jeu de données traité
     skidcurr = filled_data.SK_ID_CURR.unique()
@@ -187,6 +183,12 @@ def create_datasets(num_rows=None, path_to_save='./sample_data/', path_to_read='
     bb.to_csv(path_to_save+file_name, index_label=False)
     print("Done")
 
+    if save:
+        # enregistre filled_data 
+        with timer('Saving cleaned dataset to {}...'.format(path_to_save+'filled_data.csv')):
+            filled_data.to_csv(path_to_save+'filled_data.csv', index_label=False)
+    
+    return filled_data
 
 def prepare_data(path='./sample_data/'):
     """Prépare les jeux d'entraînement et de test à partir de l'échantillon en vue de 
