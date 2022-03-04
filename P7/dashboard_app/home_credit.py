@@ -239,8 +239,14 @@ client_features_card = dbc.Card(
                 dbc.Row(
                     dbc.Col(
                         dash_table.DataTable(
-                            style_table={'overflowX': 'auto', 'height': "450px"},
-                            fixed_rows={'headers': True},
+                            style_table={'overflowX': 'auto', 'height': "auto"},
+                            style_cell={
+                                'height': 'auto',
+                                # all three widths are needed
+                                'minWidth': '180px', 'width': '180px', 'maxWidth': '180px',
+                                'whiteSpace': 'normal'
+                            },
+                            fixed_rows={'headers': True},   
                             id='client-data'
                         )
                     ),
@@ -251,24 +257,27 @@ client_features_card = dbc.Card(
 )
 
 xaxis_selection = dcc.Dropdown(
-    value='NAME_CONTRACT_TYPE',
-    id='xaxis-column'
+    value='CNT_CHILDREN',
+    id='xaxis-column',
+    options=[col for col in processed_data.columns if col not in ['SK_ID_CURR']]
     )
 
 yaxis_selection = dcc.Dropdown(
     value='AMT_INCOME_TOTAL',
-    id='yaxis-column'
+    id='yaxis-column',
+    options=[col for col in processed_data.columns if col not in ['SK_ID_CURR']],
+    #disabled=True
     )
 
 viz_type = dcc.Dropdown(
-    options=['box', 'scatter'],
-    value='box',
+    options=['box', 'scatter', 'histogram'],
+    value='histogram',
     id='viz-type'
 )
 
-color_selection = dcc.Dropdown(
-    #value='CODE_GENDER',
-    id='color-selection'
+grouping_selection = dcc.Dropdown(
+    options=[col for col in processed_data.columns if processed_data[col].nunique()<=2],
+    id='grouping-selection'
     )
 
 viz_card = dbc.Card(
@@ -286,7 +295,7 @@ viz_card = dbc.Card(
                 html.Br(),
                 dbc.Row(
                     [
-                        dbc.Col([html.H5("Additional grouping variable:"), color_selection], md=4)
+                        dbc.Col([html.H5("Additional grouping variable:"), grouping_selection], md=4)
                     ]
                 ),
                 html.Hr(),
@@ -321,7 +330,7 @@ global_feat_importance_card = dbc.Card(
         dbc.CardBody(
             dcc.Graph(
                 id='global-feat-importances',
-                style={'height':'500px'},
+                style={'height':'600px'},
                 figure=fig
             )
         )
@@ -336,26 +345,37 @@ app.layout = dbc.Container(
         dcc.Store(id='intermediate-value-index'),
         html.H1('Home Credit Default Dashboard'),
         html.Hr(),
-        dbc.Row([
-            dbc.Col(
-                children=[
-                    show_prediction_card,
-                    html.Br(),
-                    client_features_card,
-                    html.Br(),
-                    global_feat_importance_card
-                ],
-                md=6,
-            ),
-            dbc.Col(
-                children=[
-                    viz_card,
-                    html.Br(),
-                    feat_importance_card
-                ],
-                md=6,
+        dbc.Tabs([
+            dbc.Tab([
+                dbc.Row(
+                    #dbc.Col(
+                    children=[
+                        show_prediction_card
+                    ], style={'margin-bottom':'20px'}
+                ),
+                dbc.Row(
+                    children=[
+                        viz_card,
+                        html.Br()
+                    ], style={'margin-bottom':'20px'}
+                ),
+                dbc.Row(
+                    [
+                        dbc.Col(global_feat_importance_card, md=6),
+                        dbc.Col(feat_importance_card, md=6)
+                    ], style={'margin-bottom':'20px'}
+                )
+            ], label="Data Visualisation"),
+            dbc.Tab(
+                [
+                    dbc.Row(
+                        [
+                            client_features_card
+                        ]
+                    ),
+                ], label="Exploration of the tables"
             )
-        ], align='start'),
+        ]),
     ]
 )    
 
@@ -391,44 +411,46 @@ def show_pred_result(prediction):
         }
         return 'Probability of default: {:.1f}%'.format(100*proba)
 
-@app.callback(
-    Output('xaxis-column', 'options'),
-    Output('xaxis-column', 'value'),
-    Input('choice-dataset', 'value'))
-def set_columns_options(selected_dataset):
-    columns = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore').columns 
-    return columns, columns[0]
+# @app.callback(
+#     Output('xaxis-column', 'options'),
+#     Output('xaxis-column', 'value'),
+#     Input('choice-dataset', 'value'))
+# def set_columns_options(selected_dataset):
+#     columns = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore').columns 
+#     return columns, columns[0]
 
-@app.callback(
-    Output('color-selection', 'options'),
-    Output('color-selection', 'value'),
-    Input('choice-dataset', 'value'))
-def set_columns_options(selected_dataset):
-    df = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
-    columns = df.columns
-    if selected_dataset != 'processed data':
-        color_selection = [col for col in columns if df[col].nunique()<=2]
-    else:
-        color_selection = [col for col in columns if df[col].dtype=='object']
-    try:
-        return color_selection, color_selection[0]
-    except:
-        return [], None
+# @app.callback(
+#     Output('grouping-selection', 'options'),
+#     Output('grouping-selection', 'value'),
+#     Input('choice-dataset', 'value'))
+# def set_columns_options(selected_dataset):
+#     df = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
+#     columns = df.columns
+#     if selected_dataset != 'processed data':
+#         color_selection = [col for col in columns if df[col].nunique()<=2]
+#     else:
+#         color_selection = [col for col in columns if df[col].dtype=='object']
+#     try:
+#         return color_selection, color_selection[0]
+#     except:
+#         return [], None
 
 @app.callback(
     Output('yaxis-column', 'options'),
     Output('yaxis-column', 'value'),
     Input('xaxis-column', 'value'),
-    Input('choice-dataset', 'value')
+    #Input('choice-dataset', 'value')
     )
-def set_columns_options(selected_var, selected_dataset):
-    df = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
-    if selected_dataset != 'processed data':
-        cat_cols = [col for col in df.columns if df[col].dtype=='object']
-        num_cols = [col for col in df.columns if df[col].dtype!='object']
-    else:
-        cat_cols = [col for col in df.columns if df[col].nunique()<=2]
-        num_cols = [col for col in df.columns if df[col].nunique()>2]
+def set_columns_options(selected_var, 
+#selected_dataset
+):
+    df = processed_data.drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
+    #if selected_dataset != 'processed data':
+    #    cat_cols = [col for col in df.columns if df[col].dtype=='object']
+    #     num_cols = [col for col in df.columns if df[col].dtype!='object']
+    # else:
+    cat_cols = [col for col in df.columns if df[col].nunique()<=2]
+    num_cols = [col for col in df.columns if df[col].nunique()>2]
 
     if selected_var in cat_cols:    
         return num_cols, num_cols[0]
@@ -460,6 +482,15 @@ def display_client_data(selected_id, selected_dataset):
 
     return data.to_dict('records'), [{"name": i, "id": i} for i in data.columns]
 
+@app.callback(
+    Output('yaxis-column', 'disabled'),
+    Input('viz-type', 'value')
+)
+def disable_dropdown(viz_type):
+    if viz_type=='histogram':
+        return True
+    else:
+        return False
 
 @app.callback(
     Output('feat-importances', 'figure'),
@@ -473,42 +504,67 @@ def update_feat_importances(shap_values, prediction):
     Output('credit-default', 'figure'),
     Input('xaxis-column', 'value'),
     Input('yaxis-column', 'value'),
-    Input('color-selection', 'value'),
+    Input('grouping-selection', 'value'),
     Input('customer-selection', 'value'),
-    Input('choice-dataset', 'value'),
+    #Input('choice-dataset', 'value'),
     Input('viz-type', 'value')
     )
 def update_graph(xaxis_column_name,
 yaxis_column_name,
-color_sel,
+hue,
 selected_id,
-selected_dataset,
+#selected_dataset,
 viz_type
 ):
 
-    d = data_dict[selected_dataset]
-    if selected_dataset == 'previous credits monthly balance':
-        bb_ids = bureau.loc[bureau.SK_ID_CURR==selected_id, 'SK_ID_BUREAU']
-        #data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)].T.reset_index()
-        client_data = d[d.SK_ID_BUREAU.isin(bb_ids)].drop(['SK_ID_BUREAU'], axis=1)
-    else:
-        client_data = d[d.SK_ID_CURR==selected_id].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
-    
-    # Add traces
-    if viz_type == 'scatter':
-        fig1 = px.scatter(d, x=xaxis_column_name, y=yaxis_column_name, color=color_sel, opacity=0.5)
+    #d = data_dict[selected_dataset]
+    d = processed_data
+    # if selected_dataset == 'previous credits monthly balance':
+    #     bb_ids = bureau.loc[bureau.SK_ID_CURR==selected_id, 'SK_ID_BUREAU']
+    #     #data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)].T.reset_index()
+    #     client_data = d[d.SK_ID_BUREAU.isin(bb_ids)].drop(['SK_ID_BUREAU'], axis=1)
+    # else:
+    client_data = d[d.SK_ID_CURR==selected_id].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
+    if hue:
+        # Add traces
+        if viz_type == 'scatter':
+            fig1 = px.scatter(d, x=xaxis_column_name, y=yaxis_column_name, color=hue, opacity=0.5)
+            fig1.update_yaxes(title_text=yaxis_column_name, showgrid=True, gridwidth=1, gridcolor='Lightgrey')
 
-    elif viz_type == 'box':
-        fig1 = px.box(d, x=xaxis_column_name, y=yaxis_column_name, color=color_sel)
-    
-    if not client_data.empty:
-        fig2 = px.scatter(client_data, x=xaxis_column_name, y=yaxis_column_name, color=color_sel)
-        fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'green'})
-        fig1.add_trace(fig2.data[0])
+        elif viz_type == 'box':
+            fig1 = px.box(d, x=xaxis_column_name, y=yaxis_column_name, color=hue)
+            fig1.update_yaxes(title_text=yaxis_column_name, showgrid=True, gridwidth=1, gridcolor='Lightgrey')
+        
+        elif viz_type == 'histogram':
+            fig1 = px.histogram(d, x=xaxis_column_name, color=hue, barmode='group')
+            fig1.update_yaxes(title_text='Count', showgrid=True, gridwidth=1, gridcolor='Lightgrey')
+        
+        if not client_data.empty:
+            fig2 = px.scatter(client_data, x=xaxis_column_name, y=yaxis_column_name, color=hue)
+            fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'green'})
+            fig1.add_trace(fig2.data[0])
+    else:
+        # Add traces
+        if viz_type == 'scatter':
+            fig1 = px.scatter(d, x=xaxis_column_name, y=yaxis_column_name, opacity=0.5)
+            fig1.update_yaxes(title_text=yaxis_column_name, showgrid=True, gridwidth=1, gridcolor='Lightgrey')
+
+        elif viz_type == 'box':
+            fig1 = px.box(d, x=xaxis_column_name, y=yaxis_column_name)
+            fig1.update_yaxes(title_text=yaxis_column_name, showgrid=True, gridwidth=1, gridcolor='Lightgrey')
+        
+        elif viz_type == 'histogram':
+            fig1 = px.histogram(d, x=xaxis_column_name)
+            fig1.update_yaxes(title_text='Count', showgrid=True, gridwidth=1, gridcolor='Lightgrey')
+        
+        if not client_data.empty:
+            fig2 = px.scatter(client_data, x=xaxis_column_name, y=yaxis_column_name)
+            fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'green'})
+            fig1.add_trace(fig2.data[0])
     
     fig1.update_layout(plot_bgcolor='rgba(0,0,0,0)')
     fig1.update_xaxes(title_text=xaxis_column_name)
-    fig1.update_yaxes(title_text=yaxis_column_name, showgrid=True, gridwidth=1, gridcolor='Lightgrey')
+    
 
     return fig1
 
