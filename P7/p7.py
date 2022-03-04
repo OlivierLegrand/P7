@@ -190,17 +190,21 @@ def create_datasets(num_rows=None, save=True, path_to_save='./sample_data/', pat
     
     return filled_data
 
-def prepare_data(path='./sample_data/'):
+def prepare_data(df=None, path=None):
     """Prépare les jeux d'entraînement et de test à partir de l'échantillon en vue de 
     l'entraînement du modèle"""
 
-    # chargement du dataset
-    with timer('Loading data from {}'.format(path+'filled_data.csv')):
-        filled_data = pd.read_csv(path+'filled_data.csv')
-
-    # train-test
-    X = filled_data.drop(columns=['TARGET'])
-    y = filled_data.TARGET
+    if path:
+        # chargement du dataset
+        with timer('Loading data from {}'.format(path+'filled_data.csv')):
+            df = pd.read_csv(path+'filled_data.csv')
+    else:
+        try:
+            # train-test
+            X = df.drop(columns=['TARGET'])
+            y = df.TARGET
+        except:
+            print("You must provide a path or a dataset")
 
     # Séparation en jeux d'entraînement/test
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y)
@@ -269,9 +273,9 @@ def create_shap_data(model, path='./sample_data/'):
 
 def main(num_rows=None):
     print('Creating datasets')
-    create_datasets(num_rows=num_rows, path_to_save=config['SAVE_TO'], path_to_read=config['READ_FROM'])
+    filled_data = create_datasets(num_rows=num_rows, save=True, path_to_save=config['SAVE_TO'], path_to_read=config['READ_FROM'])
     print('Preparing data')
-    X_train, X_test, y_train, y_test = prepare_data()
+    X_train, X_test, y_train, y_test = prepare_data(filled_data)
     print('Training model...')
     model = run_model(X_train, X_test, y_train, y_test)
     print('Calculating shap values')
