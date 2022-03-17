@@ -373,7 +373,7 @@ app.layout = dbc.Container(
                             client_features_card
                         ]
                     ),
-                ], label="Exploration of the tables"
+                ], label="Data tables"
             )
         ]),
     ]

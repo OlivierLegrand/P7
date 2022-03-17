@@ -82,7 +82,7 @@ Pour déployer l'application, suivre les instructions données à cette adresse:
 Home Credit est une institution financière internationale non bancaire fondée en 1997 en République tchèque et basée aux Pays-Bas. La société opère dans 9 pays et se concentre sur les prêts à tempérament principalement aux personnes ayant peu ou pas d'antécédents de crédit. [Wikipedia](https://en.wikipedia.org/wiki/Home_Credit). A cause de la nature même de sa clientèle, Home Credit a recours à des sources d'informations variées - notamment des informations liées à l'utilisation des services de téléphonie et aux transactions effectuées par les clients - pour prédire la capacité de remboursement des clients. C'est une partie de ces données (anonymisées) que Home Credit a mis en ligne  (https://www.kaggle.com/c/home-credit-default-risk/data), et sur lesquelles le présent travail repose.
 
 ## III.1 Présentation du modèle
-Les données sont contituées de huit tables, liées les unes aux autres via une ou pusieurs clés comme indiqué sur le shema ci-dessous [home_credit](home_credit.png)
+Les données sont constituées de huit tables, liées les unes aux autres via une ou pusieurs clés comme indiqué sur le shema ci-dessous [home_credit](home_credit.png)
 Les descriptions des différentes tables peuvent être consultées [ici](https://www.kaggle.com/c/home-credit-default-risk/data).\
 Le modèle utilise toutes ces tables, Les jointures et le _feature engineering_ étant réalisés par la fonction main() du module p7.py, très étroitement inspirée du kernel kaggle [LightGBM with simple features](https://www.kaggle.com/jsaguiar/lightgbm-with-simple-features/script).
 
@@ -131,7 +131,7 @@ où w représente le poids. La prédiction incorrecte est donc associée à un c
 
 Le coût total étant égal à la somme sur tous les échantillons, ceci permet bien d'obtenir une fonction de coût qui pénalisera *in fine* autant les mauvaises classifications associées à chacune des classes si w est ajusté de telle sorte que:
 	
-	w = nb éch. classe minoritaire/nb éch. classe majoritaire
+	w = nb éch. classe majoritaire/nb éch. classe minoritaire
 
 **la métrique d'évaluation**\
 De même, il faut choisir une métrique qui permette de mieux rendre compte de la qualité de classification pour chacune des classes. Plusieurs outils peuvent répondre à cela:

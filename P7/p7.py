@@ -141,7 +141,7 @@ def create_datasets(num_rows=None, save=True, path_to_save='./sample_data/', pat
     # création d'un echantillon pour le dashboard
     df = lgbmsf.join_df(num_rows=num_rows)
 
-    # On retire les colonnes ayant moins 80% de leurs valeurs renseignées
+    # On retire les colonnes ayant moins de 0% de leurs valeurs renseignées
     cleaned_df = dropna_cols(df, 0.7)
     cleaned_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
@@ -248,7 +248,7 @@ def run_model(df_train, df_test, y_train, y_test, path='./sample_data/'):
     #y_pred = regr.predict(X_test)
     y_pred = bestmodel.predict(X_test)
     print("Performance en généralisation sur le jeu de test : {:.3f}".format(roc_auc_score(y_test, y_pred)))
-    print("Esperance du modèle: {}".format(bestmodel.predict_proba(X_test).mean(0).round(3)))
+    print("Esperance de la variable cible: {}".format(bestmodel.predict_proba(X_test).mean(0).round(3)))
     return bestmodel
 
 

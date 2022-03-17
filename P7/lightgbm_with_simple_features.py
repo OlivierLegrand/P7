@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 import json
+import p7
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 with open('config.json', 'r') as f:
@@ -59,7 +60,7 @@ def application_train_test(num_rows=None, nan_as_category=False):
 
     # Optional: Remove 4 applications with XNA CODE_GENDER (train set)
     df = df[df['CODE_GENDER'] != 'XNA']
-    
+
     # Categorical features with Binary encode (0 or 1; two categories)
     for bin_feature in ['CODE_GENDER', 'FLAG_OWN_CAR', 'FLAG_OWN_REALTY']:
         df[bin_feature], uniques = pd.factorize(df[bin_feature])
