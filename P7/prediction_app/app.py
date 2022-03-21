@@ -17,11 +17,13 @@ app = FastAPI()
 model = HomeCreditDefaultModel()
 
 # load shap values
+print("Loading shap values from directory {}".format(PATH))
 shap_values = joblib.load(open(PATH+'shap_values.pkl', 'rb'))
 base_value = joblib.load(open(PATH+'base_value.pkl', 'rb'))
 
 @app.post('/predict/', response_model=PredictResponse)
 def predict_default(client: HomeCreditDefaultClient):
+    print(type(client))
     client_data = client.dict()
     prediction, probability = model.predict(list(client_data.values()))
     result = {'prediction': prediction, 'probability': probability}
@@ -29,10 +31,7 @@ def predict_default(client: HomeCreditDefaultClient):
 
 @app.post('/shap_values/')
 def return_shap_values(idx:List=[]):
-    print(idx)
     shap_vals = shap_values[idx]
-    print(shap_vals[0].sum())
-    
     return shap_vals.tolist()
 
 @app.get('/base_value/')

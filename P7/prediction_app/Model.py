@@ -11,7 +11,7 @@ with open('config.json', 'r') as f:
     
 PATH = config["PATH"]
 
-fname = PATH+'df_test.csv'
+fname = PATH+'features_test.csv'
 df = pd.read_csv(fname, nrows=1)
 df_fname = fname
 print('Dataset {} loaded'.format(df_fname))
@@ -26,7 +26,7 @@ class PredictResponse(BaseModel):
 
 class HomeCreditDefaultModel:
     def __init__(self):
-        self.model_fname_ = PATH+'fitted_lgbm.pkl'
+        self.model_fname_ = PATH+'lgb.pkl'
         try:
             self.model = joblib.load(self.model_fname_)
             print('Model loaded:', self.model)

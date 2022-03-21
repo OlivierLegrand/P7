@@ -50,7 +50,7 @@ with timer('Loading repayment history...'):
 with timer('Loading previous credit card monthly balance...'):
     credit_card_balance = pd.read_csv(PATH+'credit_card_balance.csv')
 with timer('Loading processed data'):
-    processed_data = pd.read_csv(PATH+'df_test.csv')
+    processed_data = pd.read_csv(PATH+'features_test.csv')
 
 # Les index récupérables sont restreints aux clients sur lesquels on applique le modèle
 client_ids = processed_data['SK_ID_CURR'].sort_values().to_list()
@@ -67,7 +67,7 @@ data_dict = {
 }
 
 feats = data_dict['processed data'].drop(['SK_ID_CURR'], axis=1).columns
-model = joblib.load(open(PATH+'fitted_lgbm.pkl', "rb"))
+model = joblib.load(open(PATH+'lgb.pkl', "rb"))
 response = requests.get(QUERY_URL+'base_value')
 base_value = response.json()
 
@@ -135,9 +135,9 @@ def waterfall_plot(shap_values, prediction):
         showarrow=False, 
     )
     shap_cumsum = np.asarray(base_value + rest_importance + shap_df.iloc[0][high_importance_features][::-1][1:].cumsum())
-    ymin = min(shap_cumsum)
-    ymax = max(shap_cumsum)
-    ylim = [ymin*0.7, ymax*1.1]
+    ymin = min(np.concatenate([[base_value], shap_cumsum]))
+    ymax = max(np.concatenate([[base_value], shap_cumsum]))
+    ylim = [ymin*0.9, ymax*1.1]
 
     fig.update_layout(
             title = "Probability of default explained by shap values",
@@ -257,7 +257,7 @@ client_features_card = dbc.Card(
 )
 
 xaxis_selection = dcc.Dropdown(
-    value='CNT_CHILDREN',
+    value='EXT_SOURCE_3',
     id='xaxis-column',
     options=[col for col in processed_data.columns if col not in ['SK_ID_CURR']]
     )
@@ -342,7 +342,6 @@ app.layout = dbc.Container(
     children=[
         dcc.Store(id='intermediate-value'),
         dcc.Store(id='intermediate-value-shap'),
-        dcc.Store(id='intermediate-value-index'),
         html.H1('Home Credit Default Dashboard'),
         html.Hr(),
         dbc.Tabs([
@@ -385,9 +384,11 @@ app.layout = dbc.Container(
 def fetch_api_response(selected_id):
     df = data_dict['processed data']
     client_idx = df[df.SK_ID_CURR==selected_id].index[0]
-    client_features = df[df.SK_ID_CURR==selected_id].to_dict(orient='index')[client_idx]
-    response = requests.post(QUERY_URL+'predict', json=client_features)
+    jsnified_client_features = json.dumps(df[df.SK_ID_CURR==selected_id].to_dict(orient='index')[client_idx], allow_nan=True)
+    #client_features = json.loads(jsnified_client_features)
+    response = requests.post(QUERY_URL+'predict', data=jsnified_client_features)
     prediction = response.json()
+    print(prediction)
     return prediction
 
 @app.callback(
