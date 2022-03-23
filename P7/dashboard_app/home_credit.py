@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html, dash_table, Input, Output
+from dash import Dash, dcc, html, dash_table, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -12,11 +12,12 @@ import time
 from contextlib import contextmanager
 
 import requests
+import re
 
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, external_stylesheets])
 server = app.server
 app.title = 'Home Credit Default Dashboard'
 
@@ -25,14 +26,47 @@ app.title = 'Home Credit Default Dashboard'
 with open('config.json', 'r') as f:
     CONFIG = json.load(f)   
 
-PATH = CONFIG["PATH"]
 QUERY_URL = CONFIG["QUERY_URL_LOCAL"]
+PATH = CONFIG["PATH"]
 
 @contextmanager
 def timer(title):
     t0 = time.time()
     yield
     print("{} - done in {:.0f}s".format(title, time.time() - t0))
+
+# Load feature definitions
+# load column definitions
+hc_columns_definitions = pd.read_csv('../HomeCredit_columns_description.csv')[['Row', 'Description']]
+def return_column_definition(column:str):
+    
+    group = r'(MEAN|MIN|MAX|VAR|SUM|SIZE|BURO|PREV|ACTIVE|CLOSED|APPROVED|REFUSED|POS|INSTAL|CC)'
+    root = re.sub(group+'_?|_?'+group+'$',"",column)
+    special_cols_def = {
+             'DAYS_EMPLOYED_PERC' :'DAYS_EMPLOYED / DAYS_BIRTH',
+             'INCOME_CREDIT_PERC' : 'AMT_INCOME_TOTAL / AMT_CREDIT',
+             'INCOME_PER_PERSON' : 'AMT_INCOME_TOTAL / CNT_FAM_MEMBERS',
+             'ANNUITY_INCOME_PERC' : 'AMT_ANNUITY / AMT_INCOME_TOTAL',
+             'PAYMENT_RATE' : 'AMT_ANNUITY / AMT_CREDIT',
+             'APP_CREDIT_PERC' : 'AMT_APPLICATION / AMT_CREDIT',
+             'PAYMENT_PERC' : 'AMT_PAYMENT / AMT_INSTALMENT',
+             'PAYMENT_DIFF' : 'AMT_INSTALMENT - AMT_PAYMENT',
+             'DPD' : 'DAYS_ENTRY_PAYMENT - DAYS_INSTALMENT',
+             'DBD' : 'DAYS_INSTALMENT - DAYS_ENTRY_PAYMENT',
+             'COUNT' : 'Number of installments accounts'
+         }
+    
+    if root in special_cols_def.keys():
+        return special_cols_def[root]
+    
+    elif root in hc_columns_definitions.Row.to_list():
+        description = hc_columns_definitions.loc[hc_columns_definitions['Row']==root, 'Description'].to_numpy()[0]
+        return description
+    
+    else:
+        col_name = '_'.join(root.split('_')[:-1])
+        return return_column_definition(col_name)
+
 
 # 3. Load data
 with timer('Loading loan application...'):
@@ -175,7 +209,7 @@ customer_selection = dcc.Dropdown(
         id="customer-selection",
         options=client_ids,
         value=client_ids[0],
-        style={'width':'75%'}
+        style={'width':'70%', 'height':'40px'}
     )
 
 customer_input_group = dbc.InputGroup(
@@ -183,7 +217,7 @@ customer_input_group = dbc.InputGroup(
         dbc.InputGroupText('Client ID'),
         customer_selection
     ],
-    size='sm'
+    size='md', style={'padding-top':'10px'}
 )
 
 show_prediction_card = dbc.Card(
@@ -195,19 +229,28 @@ show_prediction_card = dbc.Card(
                     [
                         dbc.Col(
                             [
-                                html.H5('Select'),
+                                html.H4('Select Client to display'),
                                 customer_input_group
                             ],  
-                            md=6
+                            md=3,
                         ),
                         dbc.Col(
                             [
-                                html.H5('Predict'),
+                                html.H4('Model prediction', style={"text-align": "center"}),
                                 html.H2(id="predicted-target", style={"text-align": "center"})
                             ], 
-                            md=6
-                        )
-                    ]
+                            md=3
+                        ),
+                        dbc.Col(
+                            [
+                                html.H4(id="prediction-viz-title", style={}),
+                                dcc.Graph(
+                                    id="prediction-indicator",
+                                ),
+                                
+                            ], align="center", md=6
+                        ),   
+                    ], align='start'
                 )
             ]
         )
@@ -248,7 +291,7 @@ client_features_card = dbc.Card(
                             },
                             fixed_rows={'headers': True},   
                             id='client-data'
-                        )
+                        ), align='stretch'
                     ),
                 )
             ]
@@ -259,25 +302,31 @@ client_features_card = dbc.Card(
 xaxis_selection = dcc.Dropdown(
     value='EXT_SOURCE_3',
     id='xaxis-column',
-    options=[col for col in processed_data.columns if col not in ['SK_ID_CURR']]
+    options=[col for col in processed_data.columns if col not in ['SK_ID_CURR']],
+    style={"font-size":'85%', 'width':'100%'}
     )
 
 yaxis_selection = dcc.Dropdown(
     value='AMT_INCOME_TOTAL',
     id='yaxis-column',
     options=[col for col in processed_data.columns if col not in ['SK_ID_CURR']],
-    #disabled=True
+    style={"font-size":'85%', 'width':'100%'}
     )
 
-viz_type = dcc.Dropdown(
+viz_type = dcc.RadioItems(
     options=['box', 'scatter', 'histogram'],
     value='histogram',
-    id='viz-type'
+    id='viz-type',
+    style={"font-size":'85%', 'width':'100%'},
+    labelStyle={'display': 'block'},
+    inputStyle={"margin-right": "20px"}
 )
-
+cols = [col for col in processed_data.columns if processed_data[col].nunique()<=2]
 grouping_selection = dcc.Dropdown(
-    options=[col for col in processed_data.columns if processed_data[col].nunique()<=2],
-    id='grouping-selection'
+    options=cols,
+    value=cols[0],
+    id='grouping-selection',
+    style={"font-size":'85%', 'width':'100%'}
     )
 
 viz_card = dbc.Card(
@@ -287,26 +336,63 @@ viz_card = dbc.Card(
             [
                 dbc.Row(
                     [
-                        dbc.Col([html.H5("Select X axis"),xaxis_selection], md=4),
-                        dbc.Col([html.H5("Select Y axis"),yaxis_selection], md=4), 
-                        dbc.Col([html.H5("Select type of plot"),viz_type], md=4),
-                    ]
-                ),
-                html.Br(),
-                dbc.Row(
-                    [
-                        dbc.Col([html.H5("Additional grouping variable:"), grouping_selection], md=4)
-                    ]
-                ),
-                html.Hr(),
-                dbc.Row(
                         dbc.Col(
-                            dcc.Graph(
-                            id="credit-default",
-                            style={"height": "450px"}
-                            )
+                            [
+                                dbc.Row(
+                                    [
+                                        html.Div("Select X axis", style={'align':'center'}),
+                                        xaxis_selection,
+                                        html.Div(id='xaxis-definition', style={'font-size':'12px'}),
+                                    ], style={
+                                    #    'padding-top':'30px', 
+                                    'padding-bottom':'20px'}
+                                ),
+                                dbc.Row(
+                                    [
+                                        html.Div("Select Y axis", style={'align':'canter'}),
+                                        yaxis_selection,
+                                        html.Div(id='yaxis-definition', style={'font-size':'12px'}),
+                                    ], style={'padding-bottom':'20px'}
+                                ), 
+                                dbc.Row(
+                                    [
+                                        html.Div("Additional grouping variable", style={'align':'center'}),
+                                        grouping_selection,
+                                        html.Div(id='groupsel-definition', style={'font-size':'12px'}),
+                                    ], style={'padding-bottom':'20px'}
+                                ),
+                                dbc.Row(
+                                    [
+                                        html.Div("Select type of plot", style={'align':'center'}),
+                                        viz_type
+                                    ]
+                                ),
+                            ], md=2, style={'padding-left':'30px', 'border-right':'2px solid #cccccc'}
+                        ),
+                        dbc.Col(
+                                dcc.Graph(
+                                    id="credit-default",
+                                    style={"height": "450px"}
+                                ),
+                                md=6, style={'border-right':'2px solid #cccccc'}
+                        ),
+                        dbc.Col(
+                            dash_table.DataTable(
+                                style_table={'overflowY': 'auto', 'width': 'auto', 'height':'350px'},
+                                style_cell={
+                                    'height': 'auto',
+                                    # all three widths are needed
+                                    'minWidth': '180px', 'width': '180px', 'maxWidth': '180px',
+                                    'whiteSpace': 'normal'
+                                    },
+                                    fixed_rows={'headers': True},   
+                                    id='most-important-values'
+                            ), 
+                            md=4,
+                            #style={'padding-top':'50px'},
                         )
-                    )
+                    ], align='center'
+                ),
             ]
         )
     ]
@@ -347,17 +433,17 @@ app.layout = dbc.Container(
         dbc.Tabs([
             dbc.Tab([
                 dbc.Row(
-                    #dbc.Col(
-                    children=[
-                        show_prediction_card
+                    [
+                        dbc.Col(show_prediction_card)
                     ], style={'margin-bottom':'20px'}
                 ),
                 dbc.Row(
-                    children=[
-                        viz_card,
+                    [
+                        dbc.Col(viz_card),
                         html.Br()
-                    ], style={'margin-bottom':'20px'}
-                ),
+                    ], 
+                    style={'margin-bottom':'20px'}
+                ), 
                 dbc.Row(
                     [
                         dbc.Col(global_feat_importance_card, md=6),
@@ -385,7 +471,6 @@ def fetch_api_response(selected_id):
     df = data_dict['processed data']
     client_idx = df[df.SK_ID_CURR==selected_id].index[0]
     jsnified_client_features = json.dumps(df[df.SK_ID_CURR==selected_id].to_dict(orient='index')[client_idx], allow_nan=True)
-    #client_features = json.loads(jsnified_client_features)
     response = requests.post(QUERY_URL+'predict', data=jsnified_client_features)
     prediction = response.json()
     print(prediction)
@@ -405,51 +490,43 @@ def fetch_api_shap(selected_id):
     Output('predicted-target', 'children'),
     Input('intermediate-value', 'data'))
 def show_pred_result(prediction):
-        _, proba = prediction['prediction'], prediction['probability']
-        message_dict = {
-            0:'No default',
-            1:'Default'
-        }
-        return 'Probability of default: {:.1f}%'.format(100*proba)
+        proba = prediction['probability']
+        return '{:.1f}%'.format(100*proba)
 
-# @app.callback(
-#     Output('xaxis-column', 'options'),
-#     Output('xaxis-column', 'value'),
-#     Input('choice-dataset', 'value'))
-# def set_columns_options(selected_dataset):
-#     columns = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore').columns 
-#     return columns, columns[0]
+@app.callback(
+    Output('xaxis-definition', 'children'),
+    Input('xaxis-column', 'value'))
+def display_column_definition(selected_column):
+    text = return_column_definition(selected_column)
+    return "Definition: "+text
 
-# @app.callback(
-#     Output('grouping-selection', 'options'),
-#     Output('grouping-selection', 'value'),
-#     Input('choice-dataset', 'value'))
-# def set_columns_options(selected_dataset):
-#     df = data_dict[selected_dataset].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
-#     columns = df.columns
-#     if selected_dataset != 'processed data':
-#         color_selection = [col for col in columns if df[col].nunique()<=2]
-#     else:
-#         color_selection = [col for col in columns if df[col].dtype=='object']
-#     try:
-#         return color_selection, color_selection[0]
-#     except:
-#         return [], None
+@app.callback(
+    Output('yaxis-definition', 'children'),
+    Input('yaxis-column', 'value'))
+def display_column_definition(selected_column):
+    try:
+        text = return_column_definition(selected_column)
+    except:
+        return ""
+    return "Definition: "+text
+
+
+@app.callback(
+    Output('groupsel-definition', 'children'),
+    Input('grouping-selection', 'value'))
+def display_column_definition(selected_column):
+    text = return_column_definition(selected_column)
+    return "Definition: "+text
+
 
 @app.callback(
     Output('yaxis-column', 'options'),
     Output('yaxis-column', 'value'),
     Input('xaxis-column', 'value'),
-    #Input('choice-dataset', 'value')
     )
 def set_columns_options(selected_var, 
-#selected_dataset
 ):
     df = processed_data.drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
-    #if selected_dataset != 'processed data':
-    #    cat_cols = [col for col in df.columns if df[col].dtype=='object']
-    #     num_cols = [col for col in df.columns if df[col].dtype!='object']
-    # else:
     cat_cols = [col for col in df.columns if df[col].nunique()<=2]
     num_cols = [col for col in df.columns if df[col].nunique()>2]
 
@@ -470,16 +547,12 @@ def display_client_data(selected_id, selected_dataset):
     if selected_dataset == 'previous credits monthly balance':
         bureau_df = data_dict['previous credits (raw)'] 
         bb_id = bureau_df.loc[bureau_df.SK_ID_CURR==selected_id, 'SK_ID_BUREAU']
-        #data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)].T.reset_index()
         del bureau_df
         bb_df = data_dict['previous credits monthly balance']
         data = bb_df[bb_df.SK_ID_BUREAU.isin(bb_id)].drop(['SK_ID_BUREAU'], axis=1)
     else:
         df = data_dict[selected_dataset]
-        #data = df[df.SK_ID_CURR==selected_id].T.reset_index()
         data = df[df.SK_ID_CURR==selected_id].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
-
-    #data.columns = ['Feature', 'Value']
 
     return data.to_dict('records'), [{"name": i, "id": i} for i in data.columns]
 
@@ -507,24 +580,16 @@ def update_feat_importances(shap_values, prediction):
     Input('yaxis-column', 'value'),
     Input('grouping-selection', 'value'),
     Input('customer-selection', 'value'),
-    #Input('choice-dataset', 'value'),
     Input('viz-type', 'value')
     )
 def update_graph(xaxis_column_name,
 yaxis_column_name,
 hue,
 selected_id,
-#selected_dataset,
 viz_type
 ):
 
-    #d = data_dict[selected_dataset]
     d = processed_data
-    # if selected_dataset == 'previous credits monthly balance':
-    #     bb_ids = bureau.loc[bureau.SK_ID_CURR==selected_id, 'SK_ID_BUREAU']
-    #     #data = bureau_balance[bureau_balance.SK_ID_BUREAU.isin(bb_id)].T.reset_index()
-    #     client_data = d[d.SK_ID_BUREAU.isin(bb_ids)].drop(['SK_ID_BUREAU'], axis=1)
-    # else:
     client_data = d[d.SK_ID_CURR==selected_id].drop(['SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV'], axis=1, errors='ignore')
     if hue:
         # Add traces
@@ -569,6 +634,64 @@ viz_type
 
     return fig1
 
+@app.callback(
+    Output('most-important-values', 'data'),
+    Output('most-important-values', 'columns'),
+    Input('customer-selection', 'value'),
+    Input('intermediate-value-shap', 'data')
+    )
+def display_client_data(selected_id, shap_values):
+    
+    df = data_dict['processed data']
+    shap_df = pd.DataFrame(data=shap_values, columns=feats)
+    high_importance_features_index = abs(shap_df.iloc[0].values).argsort()[::-1][:10]
+    high_importance_features = df.columns[high_importance_features_index]
+    data = df.loc[df.SK_ID_CURR==selected_id, high_importance_features].T.reset_index()
+    data.columns = ["Feature", "Current Value"]
+    return data.to_dict('records'), [{"name": i, "id": i} for i in data.columns]
+
+@app.callback(
+    Output('prediction-indicator', 'figure'),
+    Input('intermediate-value', 'data')
+    )
+def plot_prediction(prediction):
+    proba = prediction['probability']
+    color = "green" if proba < 0.36 else "orange" if 0.36<=proba<0.64 else "red"
+    fig = go.Figure(go.Indicator(
+        mode = "number+gauge", 
+        value = 100*proba,
+        number = {'font':{'size':18}, 'valueformat':'.1f', 'suffix':'%'},
+        domain = {'x': [.25, 1], 'y': [0, 1]},
+        gauge = {
+            'shape': "bullet",
+            'axis': {'range': [None, 100], 'tick0':0, 'dtick':10},
+            'threshold': {
+                'line': {'color': "red", 'width': 2},
+                'thickness': 0.75,
+                'value': 36},
+            'bar': {'color': color},
+        }
+            ))
+    fig.update_layout(margin=dict(l=20, r=20, t=20, b=20), height=100
+    #title={'text':"<b>Predicted probability of default</b>", 'x':0.25}
+    )
+
+    return fig
+
+@app.callback(
+    Output('prediction-viz-title', 'children'),
+    Output('prediction-viz-title', 'style'),
+    Input('intermediate-value', 'data')
+    )
+def prediction_title(prediction):
+    
+    proba = prediction["probability"]
+    if proba < 0.36:
+        return "No risk of default", {'text-align': 'center', 'color':'green'}
+    elif 0.36 <= proba < 0.64:
+        return "Substantial risk of default", {'text-align': 'center', 'color':'orange'}
+    else:
+        return "Very high risk of default", {'text-align': 'center', 'color':'red'}
 
 if __name__ == '__main__':
     app.run_server(debug=True)

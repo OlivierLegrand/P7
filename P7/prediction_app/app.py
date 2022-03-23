@@ -12,7 +12,7 @@ with open('config.json', 'r') as f:
     
 PATH = config["PATH"]
 
-# 2. Create app and model objects
+# Create app and model objects
 app = FastAPI()
 model = HomeCreditDefaultModel()
 
@@ -20,6 +20,9 @@ model = HomeCreditDefaultModel()
 print("Loading shap values from directory {}".format(PATH))
 shap_values = joblib.load(open(PATH+'shap_values.pkl', 'rb'))
 base_value = joblib.load(open(PATH+'base_value.pkl', 'rb'))
+
+# load column definitions
+hc_columns_definitions = pd.read_csv('../HomeCredit_columns_description.csv')[['Row', 'Description']]
 
 @app.post('/predict/', response_model=PredictResponse)
 def predict_default(client: HomeCreditDefaultClient):
@@ -37,6 +40,20 @@ def return_shap_values(idx:List=[]):
 @app.get('/base_value/')
 def return_base_value():
     return base_value
+
+@app.post('/definition/')
+def return_column_definition(column:str):
+    col_analyzer = column.split('_')
+    prefix = col_analyzer[0]
+    suffix = col_analyzer[-1]
+    if prefix in ['BURO', 'PREV', 'ACTIVE', 'CLOSED', 'APPROVED', 'REFUSED', 'POS', 'INSTAL', 'CC']:
+        if suffix in ['MEAN', 'MAX', 'MIN', 'VAR', 'SUM', 'SIZE']:
+            col_name = '_'.join(col_analyzer[1:-1])
+        else:
+            col_name = '_'.join(col_analyzer[1:])
+    else:
+        col_name = '_'.join(col_analyzer)
+    return hc_columns_definitions.loc[hc_columns_definitions['Row']==col_name, 'Description'].to_numpy()[0]
 
 if __name__ == '__main__':
     uvicorn.run(app, host='127.0.0.1', port=8000)
