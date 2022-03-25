@@ -16,6 +16,10 @@ Vérifier que le fichier config.json est configuré de la manière suivante et l
 		"NUM_ROWS":10000
 	}	
 
+Créer le répertoire sample_data:
+
+	cd <repertoire>
+	mkdir sample_data
 
 Attention, le nom du dossier dans lequel les fichiers téléchargés ont été placés et la valeur du champ "READ_FROM" du fichier de config.json doivent coïncider.
 
@@ -44,7 +48,7 @@ Après applications des étapes décrites précédemment, le répertoire doit en
 - Le notebook contenant l'analyse exploratoire, l'entraînement du modèle et les essais d'interprétation du modèle
 - les fichiers lightgbm_with_simple_features.py et p7.py renfermant les scripts nécessaires au fonctionnement du modèle et des applications
 - les dossiers prediction_app et dashboard_app contenant les fichiers nécessaires au déploiement des applications en local ou sur le web
-- le dossier sample_data contenant les fichiers csv des données, le modèle entraîné et enregistré au format pickle (fitted_lgbm.pkl), et les fichiers contenant les données utiles pour l'interprétation du modèle (shap_values.pkl et base_value.pkl)
+- le dossier sample_data contenant les fichiers csv des données, le modèle entraîné et enregistré au format pickle (lgb.pkl), et les fichiers contenant les données utiles pour l'interprétation du modèle (shap_values.pkl et base_value.pkl)
 
 ## II.2 Procédures pour lancer les applications en local
 
@@ -82,7 +86,7 @@ Pour déployer l'application, suivre les instructions données à cette adresse:
 Home Credit est une institution financière internationale non bancaire fondée en 1997 en République tchèque et basée aux Pays-Bas. La société opère dans 9 pays et se concentre sur les prêts à tempérament principalement aux personnes ayant peu ou pas d'antécédents de crédit. [Wikipedia](https://en.wikipedia.org/wiki/Home_Credit). A cause de la nature même de sa clientèle, Home Credit a recours à des sources d'informations variées - notamment des informations liées à l'utilisation des services de téléphonie et aux transactions effectuées par les clients - pour prédire la capacité de remboursement des clients. C'est une partie de ces données (anonymisées) que Home Credit a mis en ligne  (https://www.kaggle.com/c/home-credit-default-risk/data), et sur lesquelles le présent travail repose.
 
 ## III.1 Présentation du modèle
-Les données sont constituées de huit tables, liées les unes aux autres via une ou pusieurs clés comme indiqué sur le shema ci-dessous [home_credit](home_credit.png)
+Les données sont constituées de huit tables, liées les unes aux autres via une ou plusieurs clés comme indiqué sur le shéma ci-dessous [home_credit](home_credit.png)
 Les descriptions des différentes tables peuvent être consultées [ici](https://www.kaggle.com/c/home-credit-default-risk/data).\
 Le modèle utilise toutes ces tables, Les jointures et le _feature engineering_ étant réalisés par la fonction main() du module p7.py, très étroitement inspirée du kernel kaggle [LightGBM with simple features](https://www.kaggle.com/jsaguiar/lightgbm-with-simple-features/script).
 
@@ -100,7 +104,7 @@ Les contreparties de cette efficacité sont multiples:
 - le grand nombre d'hyperparamètres ajustables et dont une détermination optimale nécessite une recherche sur grille dans un espace des paramètres de grande taille. Ainsi, on choisit pour la détermination des meilleurs hyperparamètres l'algorithme RandomSearchCV qui va permettre de parcourir une portion significative de l'espace des paramètres en n'utilisant qu'un nombre restreint d'itérations, permettant ainsi un gain de temps sensible par rapport à la méthode standard GridSearchCV au prix toutefois d'une évaluation plus ou moins suboptimale en comparaison.\
 
 ### III.2.2 Optimisation des hyperparamètres
-Pour effectuer l'optimisation des hyperparamètres, le jeu de données est scindé une première fois en une paire entraînement/test dans les proportions 0.7/0.3, puis le jeu d'entraînement est lui-même scindé en une autre paire entraînement/validation dans les proportions 0.7/0.3. Ceci est réalisé grâce à la fonction train_test_split de la bibliothèqye scikit-learn en prenant en compte le déséquilibre des classes grâce au paramètre stratify=True, ce qui permet d'avoir des jeux d'entraînement et de test qui reproduisent aussi fidèlement que possible les distributions relatives des deux classes dans le jeu de données global. Chaque modèle est évalué au travers d'une validation croisée sur 5 folds stratifiés (sklearn.model_selection.StratifiedKFolds) afin de prendre en compte le déséquilibre des classes. Les hyperparamètres ajustés sont les suivants:
+Pour effectuer l'optimisation des hyperparamètres, le jeu de données est scindé une première fois en une paire entraînement/test dans les proportions 0.7/0.3. Ceci est réalisé grâce à la fonction train_test_split de la bibliothèqye scikit-learn en prenant en compte le déséquilibre des classes grâce au paramètre stratify=True, ce qui permet d'avoir des jeux d'entraînement et de test qui reproduisent aussi fidèlement que possible les distributions relatives des deux classes dans le jeu de données global. Chaque modèle est évalué au travers d'une validation croisée sur 5 folds stratifiés (sklearn.model_selection.StratifiedKFolds) afin de prendre en compte le déséquilibre des classes. Les hyperparamètres ajustés sont les suivants:
 - le nombre maximal de feuilles (num_leaves) - permet de prévenir le surapprentissage
 - le taux d'apprentissage (learning_rate) - permet de trouver un compromis entre efficacité et performance "brute"
 - le nombre de boosts (n_estimators) - pour augmenter la peformance
@@ -134,20 +138,21 @@ Le coût total étant égal à la somme sur tous les échantillons, ceci permet 
 	w = nb éch. classe majoritaire/nb éch. classe minoritaire
 
 **la métrique d'évaluation**\
-De même, il faut choisir une métrique qui permette de mieux rendre compte de la qualité de classification pour chacune des classes. Plusieurs outils peuvent répondre à cela:
-- la matrice de confusion, qui permet de visualiser directement le taux de vrais positifs (sensibilité, ou *recall*), ainsi que le ratio du nombre de vrais positifs sur la somme des vrais positifs et des faux positifs (précision). Ces deux nombres peuvent être combinés pour former le *F-score*. Nous utilisone le *F-score* pour évaluer la qualité du modèle.
-- Area Under Receiver Operating Characteristic (AUROC): la ROC est une courbe construite en reportant, pour chaque valeur de seuil de discrimination, le taux de vrais positifs (fraction des positifs qui sont effectivement détectés, précision) en fonction du taux de faux positifs (fraction des négatifs qui sont incorrectement détectés, antispécificité). Cette courbe part du point (0, 0) où tout est classifié comme "négatif", et arrive au point (1, 1) où tout est classifié "positif". Un classifieur aléatoire tracera une droite allant de (0, 0) à (1, 1), donnant une AUROC égale à 0.5, et tout classifieur "meilleur" sera représenté par une courbe située au-dessus de cette droite et possèdera ainsi une AUROC supérieure à 0.5. Nous utilisons également cette métrique pour évaluer le modèle.
+De même, il faut choisir une métrique qui permette de mieux rendre compte de la qualité de la classification pour chacune des classes. Plusieurs outils peuvent répondre à cela:
+- Area Under Receiver Operating Characteristic (AUROC): la ROC est une courbe construite en reportant, pour chaque valeur de seuil de discrimination, le taux de vrais positifs (fraction des positifs qui sont effectivement détectés, précision) en fonction du taux de faux positifs (fraction des négatifs qui sont incorrectement détectés, antispécificité). Cette courbe part du point (0, 0) où tout est classifié comme "négatif", et arrive au point (1, 1) où tout est classifié "positif". Un classifieur aléatoire tracera une droite allant de (0, 0) à (1, 1), donnant une AUROC égale à 0.5, et tout classifieur "meilleur" sera représenté par une courbe située au-dessus de cette droite et possèdera ainsi une AUROC supérieure à 0.5. Nous utilisons principalement cette métrique pour évaluer le modèle, conformément au souhait de l'établissement Home Credit.
+- la matrice de confusion, qui permet de visualiser directement le taux de vrais positifs (sensibilité, ou *recall*), ainsi que le ratio du nombre de vrais positifs sur la somme des vrais positifs et des faux positifs (précision).
 
-### III.2.4 Préparation des jeux de données pour optimiser la qualité du modèle
-Une autre stratégie peut être employée pour corriger le déséquilibre des classes et ainsi permettre de meilleurs résultats: il s'agit de modifier le jeu de données en sur-échantillonant la classe minoritaire - via la création de nouveaux individus -, et/ou de sous échantillonner la classe majoritaire en effectuant un tirage aléatoire.
-Cette stratégie est mise en oeuvre à l'aide la bibliothèque imblearn. Pour le sur-échantillonnage, SMOTENC est choisi pour sa capacité à prendre en compte les variables catégorielles. 
+### III.2.4 Sélection des features pour simplifier et optimiser le modèle
+Une sélection des features les plus importantes peut-être réalisée, à la fois dans un but de simplification et d'optimisation du modèle:
+- simplification: on peut ainsi réduire le nombre de features, et surtout écarter celles dont la valeur prédictive est proche de 0
+- optimisation: en ne gardant que les features les plus importantes on réduit le risque de surapprentissage.
 
 ### III.2.5 Résumé de la méthodologie d'entraînement
 En réssumé, les étapes mises en oeuvre sont les suivantes: 
-1. Chargement d'un extrait du jeu de données. 
-2. Séparation entraînement/test une fois pour la recherche sur grille des meilleurs paramètres, puis sélection des features les plus pertinentes par la méthode des permutations. Cette sélection doit se faire sur un modèle aussi bon que possible, ce qui rend nécessaire la recheche sur grille de bons paramètres déjà à cette étape. Cette étape permet d'obtenir une réduction de 500+ à environ 20 features.
-3. Chargement du jeu de données complet, avec restriction aux features sélectionnées auparavant.
-4. Oversampling avec SMOTENC et undersampling (imblearn). 
+1. Chargement du jeu de données complet.
+2. Un première sélection des features en ne gardant qu'une feature pour chaque paire de features corrélées à plus de 80%. Cette étape réduit le nombre de features de 797 à un peu plus de 530.
+3. Séparation entraînement/test une fois pour la recherche sur grille des meilleurs paramètres, puis sélection des features les plus pertinentes via la méthode de feature_importances_ de la classe LGBMClassifier. Cette sélection doit se faire sur un modèle aussi bon que possible, ce qui rend nécessaire la recheche sur grille de bons paramètres déjà à cette étape. Cette étape permet d'obtenir une réduction de 530+ à environ 234 features.
+4. Chargement du jeu de données complet, avec restriction aux features sélectionnées auparavant.
 5. Deuxième recherche sur grille, puis entraînement sur le jeu d'entraînement complet avec les meilleurs paramètres.
 
 # IV Interprétation du modèle
@@ -155,21 +160,32 @@ On cherche, dans un but de compréhension du modèle mais aussi de communication
 * les variables les plus importantes dans notre jeu de données, c'est-à-dire celles qui ont le plus d'impact sur le score global obtenu par l'estimateur - ici F1 et/ou AUROC. Il s'agit alors de l'interprétation globale.
 * Pour chaque prédiction, quelles sont les variables qui ont principalement conduit l'estimateur à faire la prédiction en question. Il s'agit alors de l'interprétation locale.
 
-LightGBM représente une sorte de "boîte noire": il s'agit d'un algorithme *non-paramétrique*, et contrairement au cas de la régréssion linéaire nous n'avons pas à notre disposition des coefficients (évalués lors de l'entraînement) associés à chaque variable et qui permettent directement d'interpréter le poids affecté à chaque variable par le modèle. On choisit donc, pour l'interprétation globale, d'utiliser le calcul des *feature importances* via la méthode des permutations. En effet, cette méthode est agnostique - elle ne repose pas sur un modèle en particulier - et n'est pas sujette à certains biais qui peuvent être rencontrés lors du calcul des *feature importances* via par exemple l'évaluation du coefficient de Gini - méthode standard dans le cas des algorithmes à base d'arbres de décision. La méthode des permutations consiste à permuter, aléatoirement, les valeurs d'une variable et à observer la diminution de score qui en résulte. Plus la diminution est importante, plus la variable est importante.
+LightGBM représente une sorte de "boîte noire": il s'agit d'un algorithme *non-paramétrique*, et contrairement au cas de la régréssion linéaire nous n'avons pas à notre disposition des coefficients (évalués lors de l'entraînement) associés à chaque variable et qui permettent directement d'interpréter le poids affecté à chaque variable par le modèle. On choisit donc, pour l'interprétation globale, d'utiliser le calcul des *feature importances* via la méthode feature_importances_ de la classe LGBMClassifier. Cette méthode consiste à classer les features selon le nombre de fois qu'elles sont utilisées par le modèle, c'est-à-dire le nombre d'embranchements de l'arbre de décision auxquels elles sont associées. Plus le nombre d'embranchements est important, plus la feature est importante.
 Dans notre cas, cette méthode est utilisée deux fois: une première fois pour sélectionner les variables les plus  imoportantes, une deuxième fois pour réaliser l'interprétation globale.
 
-Pour l'interprétation locale du mmodèle, on fait appel à la bibliothèque SHAP, et au calcul des *shap values*. Il s'agit ici d'une méthode directement adaptée de la théorie des jeux, et qui consiste à évaluer l'influence de chaque variable sur la prédiction faite par le modèle (ici la probabilité de non-remboursement). Le point de départ de cette méthode est l'évaluation d'un score de base, qui correspond en fait à l'espérance de la variable cible, et qui peut s'interpréter comme la probabilité qu'un individu tiré au hasard ne rembourse pas le crédit. L'estimateur, parce qu'il a été entraîné, renvoie une prédiction sensiblement différente et le calcul des *shap values* permet d'associer à chaque variable sa part de la différence entre la probabilité calculée par l'estimateur et l'espérance. Les détails de l'implémentation de cette bibliothèque peuvent être consultés [ici](https://shap-lrjball.readthedocs.io/en/latest/).
+Pour l'interprétation locale du mmodèle, on fait appel à la bibliothèque SHAP, et au calcul des *shap values*. Il s'agit ici d'une méthode directement adaptée de la théorie des jeux, et qui consiste à évaluer l'influence de chaque variable sur la prédiction faite par le modèle (ici la probabilité de non-remboursement). Le point de départ de cette méthode est l'évaluation d'un score de base, qui correspond en fait à l'espérance de la variable cible, et qui peut s'interpréter comme la probabilité moyenne sur l'ensemble du jeu de données qu'un individu fasse défaut. Dans notre cas cette probabilité est de 40%. L'estimateur, parce qu'il a été entraîné, renvoie une prédiction sensiblement différente et le calcul des *shap values* permet d'associer à chaque variable sa part de la différence entre la probabilité calculée par l'estimateur et l'espérance. Les détails de l'implémentation de cette bibliothèque peuvent être consultés [ici](https://shap-lrjball.readthedocs.io/en/latest/).
+
+# V Seuil de classification
+Le modèle entraîné affiche un score de rappel - i.e. un taux de vrais positifs - de 71%, et une précision de 97% pour la classe majoritaire. Ceci a pour conséquence que l'établissement doit s'attendre à:
+- classer incorrectement des clients à risque de faire défaut comme des clients sûrs
+- classer incorrectement des clients "sûrs" comme étant "à risque".
+
+Ceci a pour conséquence de réduire les gains attendus par rapport à ce qu'ils seraient si l'établissement pouvait classer parfaitement chaque client: d'une part parce qu'un certain nombre de clients se verront accorder un crédit alors même que leur capacité réelle de remboursement ne permettra pas de rembourser le crédit, d'autre part parce qu'un certain nombre de clients jugés "à risque" sont en faits "sûrs" privant ainsi l'établissement d'une source de revenus supplémentaire. Pour optimiser les gains espérés, on peut cependant ajuster le seuil de classification.
+
+Le seuil de classification est le seuil de probabilité au-delà duquel le modèle classe un individu dans la catégorie 1. Par défaut ce seuil est égal à 0,5: un individu dont la probabilité de faire défaut est supérieure à 50% sera classé positivement. Le modèle de prédiction étant imparfait, rien n'assure cependant que ce seuil soit optimal. Dans notre cas, en supposant que l'établissement prête 100 et attende un rendement de 5 sur chaque crédit alloué, et en supposant par ailleurs une perte de 100 par client faisant défaut, on peut montrer que le seuil de classification optimal, c'est-à-dire celui maximisant les gains est égal à 35%, tandis qu'au-delà d'un seuil à 64% l'établissement doit s'attendre à des pertes nettes. Pour arriver à ce résultat, on considère sur la base de 100 clients:
+- un gain de 5\*Vrais Négatifs
+- une perte de 100\*Faux négatifs
+- un manque à gagner de 5\*Faux positifs
+
+les nombres de Vrais négatifs, faux négatifs et faux positifs étant indiqués par la matrice de confusion calculée pour différentes valeurs de seuils.
 
 # V Limites et améliorations possibles
-Même si l'estimateur entraîné réalise une meilleure classification que le classifieur aléatoire (AUROC de 0.76 vs. 0.5 pour le classifieur aléatoire), le modèle souffre quand même d'une performance limitée, comme l'indique le score F1 de 0.3 obtenu sur le jeu de test. On peut imaginer les pistes suivantes pour améliorer les résultats: 
+Même si l'estimateur entraîné réalise une meilleure classification que le classifieur aléatoire (AUROC de 0.784 vs. 0.5 pour le classifieur aléatoire), le modèle souffre quand même d'une performance limitée, avec notamment une précision de 0.18 sur la classe minoritaire obtenue sur le jeu de test. On peut imaginer les pistes suivantes pour améliorer les résultats: 
 
 * Entraînement de l'estimateur:
-	- la capacité du modèle à gérer directement les variables catégorielles n'est pas exploitée, mais il serait intéressant de voir si cela conduit à de meilleures 	performances
+	- la capacité du modèle à gérer directement les variables catégorielles n'est pas exploitée, mais il serait intéressant de voir si cela conduit à de meilleures performances.
 	- bien qu'une recherche sur grille ait été effectuée, il se peut que les valeurs retenues correspondent à un extremum local. Une recherche plus exhaustive pourrait peut-être conduire à de meilleurs résultats
 	- Déterminer de nouvelles variables via des considérations métiers
-	- Modifier le seuil de discrimination pour augmenter le taux de vrais positifs, tout en maintenant aussi bas que possible le taux de faux négatifs.
-
-Le dashboard présente un certain nombre d'informations, mais peut sans doute être amélioré pour rendre les résultats encore plus lisibles, par exemple en rendant possible la présentation de graphiques autres que les boîtes à moustache ou les nuages de points.
 
 
 

@@ -40,6 +40,9 @@ def timer(title):
 hc_columns_definitions = pd.read_csv('../HomeCredit_columns_description.csv')[['Row', 'Description']]
 def return_column_definition(column:str):
     
+    if not column:
+        return "No variable selected"
+        
     group = r'(MEAN|MIN|MAX|VAR|SUM|SIZE|BURO|PREV|ACTIVE|CLOSED|APPROVED|REFUSED|POS|INSTAL|CC)'
     root = re.sub(group+'_?|_?'+group+'$',"",column)
     special_cols_def = {
@@ -229,25 +232,29 @@ show_prediction_card = dbc.Card(
                     [
                         dbc.Col(
                             [
-                                html.H4('Select Client to display'),
+                                html.H3('Select Client to display'),
                                 customer_input_group
                             ],  
-                            md=3,
+                            md=3, align=''
                         ),
                         dbc.Col(
                             [
-                                html.H4('Model prediction', style={"text-align": "center"}),
-                                html.H2(id="predicted-target", style={"text-align": "center"})
+                                dbc.Row(html.H3('Predicted probability of default', style={"text-align": "center"}), style={'padding-bottom':'20px', 'padding-right':'0px'}),
+                                dbc.Row(html.H1(id="predicted-target", style={"text-align": "center"}))
                             ], 
                             md=3
                         ),
                         dbc.Col(
                             [
-                                html.H4(id="prediction-viz-title", style={}),
-                                dcc.Graph(
-                                    id="prediction-indicator",
-                                ),
-                                
+                                dbc.Row(html.H3("Risk assessment", style={"text-align": "center"}), style={'padding-bottom':'20px'}),
+                                dbc.Row(
+                                    [
+                                        html.H5(id="prediction-viz-title"),
+                                        dcc.Graph(
+                                        id="prediction-indicator",
+                                        ),
+                                    ]
+                                )
                             ], align="center", md=6
                         ),   
                     ], align='start'
@@ -607,7 +614,7 @@ viz_type
         
         if not client_data.empty:
             fig2 = px.scatter(client_data, x=xaxis_column_name, y=yaxis_column_name, color=hue)
-            fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'green'})
+            fig2.update_traces({'marker_symbol':'star', 'marker_size':20, 'marker_color':'gold', 'marker_line':dict(width=2, color='darkslategray')})
             fig1.add_trace(fig2.data[0])
     else:
         # Add traces
@@ -625,7 +632,7 @@ viz_type
         
         if not client_data.empty:
             fig2 = px.scatter(client_data, x=xaxis_column_name, y=yaxis_column_name)
-            fig2.update_traces({'marker_symbol':'star', 'marker_size':15, 'marker_color':'green'})
+            fig2.update_traces({'marker_symbol':'star', 'marker_size':20, 'marker_color':'gold', 'marker_line':dict(width=2, color='darkslategray')})
             fig1.add_trace(fig2.data[0])
     
     fig1.update_layout(plot_bgcolor='rgba(0,0,0,0)')
@@ -656,7 +663,7 @@ def display_client_data(selected_id, shap_values):
     )
 def plot_prediction(prediction):
     proba = prediction['probability']
-    color = "green" if proba < 0.36 else "orange" if 0.36<=proba<0.64 else "red"
+    color = "green" if proba < 0.35 else "orange" if 0.35<=proba<0.64 else "red"
     fig = go.Figure(go.Indicator(
         mode = "number+gauge", 
         value = 100*proba,
@@ -686,9 +693,9 @@ def plot_prediction(prediction):
 def prediction_title(prediction):
     
     proba = prediction["probability"]
-    if proba < 0.36:
+    if proba < 0.35:
         return "No risk of default", {'text-align': 'center', 'color':'green'}
-    elif 0.36 <= proba < 0.64:
+    elif 0.35 <= proba < 0.64:
         return "Substantial risk of default", {'text-align': 'center', 'color':'orange'}
     else:
         return "Very high risk of default", {'text-align': 'center', 'color':'red'}
